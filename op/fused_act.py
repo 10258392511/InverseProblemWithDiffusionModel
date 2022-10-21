@@ -16,7 +16,7 @@ fused = load(
         os.path.join(module_path, "fused_bias_act_kernel.cu"),
     ],
     verbose=True,
-    build_directory="."
+    # build_directory="."
 )
 
 

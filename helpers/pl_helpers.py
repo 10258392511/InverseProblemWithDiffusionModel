@@ -15,7 +15,7 @@ class TrainScoreModel(pl.LightningModule):
     def __init__(self, score_model, ds_dict, params):
         """
         ds_dict: keys: train, val
-        params: batch_size, lr, sde
+        params: batch_size, lr, sde, if_centering
         """
         super(TrainScoreModel, self).__init__()
         self.params = params
@@ -30,6 +30,8 @@ class TrainScoreModel(pl.LightningModule):
             X = batch[0]  # (B, C, H, W)
         else:
             X = batch
+        if self.params["if_centering"]:
+            X = 2 * X - 1
         loss = self.loss_fn(self.model, X)
 
         self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
@@ -42,6 +44,8 @@ class TrainScoreModel(pl.LightningModule):
             X = batch[0]  # (B, C, H, W)
         else:
             X = batch
+        if self.params["if_centering"]:
+            X = 2 * X - 1
         loss = self.loss_fn(self.model, X)
 
         self.log("val_loss", loss, prog_bar=True, on_epoch=True)
@@ -99,4 +103,3 @@ def get_score_model_trainer(callbacks: List[pl.Callback], mode="train"):
         trainer = pl.Trainer(**train_params_cp)
 
     return trainer
-

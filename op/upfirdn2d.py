@@ -14,7 +14,7 @@ upfirdn2d_op = load(
         os.path.join(module_path, "upfirdn2d_kernel.cu"),
     ],
     verbose=True,
-    build_directory="."
+    # build_directory="."
 )
 
 
