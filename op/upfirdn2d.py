@@ -13,7 +13,8 @@ upfirdn2d_op = load(
         os.path.join(module_path, "upfirdn2d.cpp"),
         os.path.join(module_path, "upfirdn2d_kernel.cu"),
     ],
-    verbose=True
+    verbose=True,
+    build_directory="."
 )
 
 
@@ -143,25 +144,25 @@ class UpFirDn2d(Function):
         return grad_input, None, None, None, None
 
 
-# def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
-#     if input.device.type == "cpu":
-#         out = upfirdn2d_native(
-#             input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1]
-#         )
-#
-#     else:
-#         out = UpFirDn2d.apply(
-#             input, kernel, (up, up), (down, down), (pad[0], pad[1], pad[0], pad[1])
-#         )
-#
-#     return out
-
 def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
-    # out = UpFirDn2d.apply(
-    #     input, kernel, (up, up), (down, down), (pad[0], pad[1], pad[0], pad[1])
-    # )
-    out = upfirdn2d_native(input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1])
+    if input.device.type == "cpu":
+        out = upfirdn2d_native(
+            input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1]
+        )
+
+    else:
+        out = UpFirDn2d.apply(
+            input, kernel, (up, up), (down, down), (pad[0], pad[1], pad[0], pad[1])
+        )
+
     return out
+
+# def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
+#     # out = UpFirDn2d.apply(
+#     #     input, kernel, (up, up), (down, down), (pad[0], pad[1], pad[0], pad[1])
+#     # )
+#     out = upfirdn2d_native(input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1])
+#     return out
 
 
 def upfirdn2d_native(
