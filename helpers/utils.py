@@ -19,7 +19,7 @@ def expand_like(X_in, X_mimic):
 
 def get_data_inverse_scaler(is_centered):
   """Inverse data normalizer."""
-  if is_centerd:
+  if is_centered:
     # Rescale [-1, 1] to [0, 1]
     return lambda x: (x + 1.) / 2.
   else:

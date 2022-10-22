@@ -117,21 +117,20 @@ class EMA(pl.Callback):
 
 
 class ValVisualization(pl.Callback):
-    def __init__(self, score_model, params):
+    def __init__(self, params):
         """
-        params: config, sde, shape, eps (in consistency with get_sampling_fn)
+        params: config, sde, shape (B, C, H, W), eps (in consistency with get_sampling_fn)
         """
         super(ValVisualization, self).__init__()
         self.params = params
-        self.score_model = score_model
+        self.params["shape"] = self._collate_shape(self.params["shape"])
         self.epoch_cnt = 0
 
     @torch.no_grad()
     def on_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         inverse_scaler = get_data_inverse_scaler(pl_module.params["if_centering"])
-        sampler_fn = get_sampling_fn(**self.params, shape=self._collate_shape(self.params["shape"]),
-                                     inverse_scaler=inverse_scaler)
-        X_sample, n = sampler_fn(self.score_model)  # X_sample: (1, C, H, W)
+        sampler_fn = get_sampling_fn(**self.params, inverse_scaler=inverse_scaler)
+        X_sample, n = sampler_fn(pl_module)  # X_sample: (1, C, H, W)
         pl_module.logger.add_images("val_sample", ptu.to_numpy(X_sample), self.epoch_cnt)
         self.epoch_cnt += 1
 

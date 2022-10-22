@@ -46,9 +46,15 @@ class TrainScoreModel(pl.LightningModule):
             X = batch
         if self.params["if_centering"]:
             X = 2 * X - 1
+
         loss = self.loss_fn(self.model, X)
 
         self.log("val_loss", loss, prog_bar=True, on_epoch=True)
+
+    def forward(self, X, t):
+        X = X.float()
+        t = t.float()
+        return self.model(X, t)
 
     def train_dataloader(self):
         ds_key = "train"
@@ -96,7 +102,7 @@ def get_score_model_trainer(callbacks: List[pl.Callback], mode="train"):
     else:
         train_params_cp = train_params.copy()
         train_params_cp.update({
-            "precision": 16,
+            # "precision": 16,
             "num_sanity_val_steps": -1,
             "max_epochs": general_config.max_epochs
         })
