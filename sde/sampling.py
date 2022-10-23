@@ -402,14 +402,14 @@ def get_pc_sampler(sde, shape, predictor, corrector, inverse_scaler, snr,
     """
     with torch.no_grad():
       # Initial sample
-      x = sde.prior_sampling(shape).to(device)
-      timesteps = torch.linspace(sde.T, eps, sde.N, device=device)
+      x = sde.prior_sampling(shape).to(device).float()
+      timesteps = torch.linspace(sde.T, eps, sde.N, device=device).float()
 
       for i in range(sde.N):
         t = timesteps[i]
-        vec_t = torch.ones(shape[0], device=t.device) * t
-        x, x_mean = corrector_update_fn(x, vec_t, model=model)
-        x, x_mean = predictor_update_fn(x, vec_t, model=model)
+        vec_t = torch.ones(shape[0], device=t.device).float() * t
+        x, x_mean = corrector_update_fn(x.float(), vec_t.float(), model=model)
+        x, x_mean = predictor_update_fn(x.float(), vec_t.float(), model=model)
 
       return inverse_scaler(x_mean if denoise else x), sde.N * (n_steps + 1)
 
@@ -490,40 +490,41 @@ def get_ode_sampler(sde, shape, inverse_scaler,
   return ode_sampler
 
 
-# @torch.no_grad()
-# def vanilla_pc_sampler(score_model, sde, snr, eps=1e-3, shape=(1, 1, 28, 28), save_dir=None, **kwargs):
-#   score_model.eval()
-#   score_model = score_model.to(ptu.DEVICE)
-#   predictor = ReverseDiffusionPredictor(sde, score_model)
-#   corrector = LangevinCorrector(sde, score_model, snr, n_steps=1)  # default: n_steps=1
-#   img_clips = []
-#   timesteps = torch.linspace(sde.T, eps, sde.N, device=ptu.DEVICE)
-#   save_interval = sde.N // 10  # save 20 screenshots
+@torch.no_grad()
+def vanilla_pc_sampler(score_model, sde, snr, eps=1e-3, shape=(1, 1, 28, 28), save_dir=None, **kwargs):
+  score_model.eval()
+  score_model = score_model.to(ptu.DEVICE)
+  predictor = ReverseDiffusionPredictor(sde, score_model)
+  corrector = LangevinCorrector(sde, score_model, snr, n_steps=1)  # default: n_steps=1
+  img_clips = []
+  timesteps = torch.linspace(sde.T, eps, sde.N, device=ptu.DEVICE)
+  save_interval = sde.N // 10  # save 20 screenshots
 
-#   x = sde.prior_sampling(shape).to(ptu.DEVICE)  # (B, C, H, W)
-#   for i in range(sde.N):
-#     t = timesteps[i]
-#     vec_t = torch.ones(shape[0], device=ptu.DEVICE) * t  # (B,)
-#     x, x_mean = corrector.update_fn(x, vec_t)  # all: (B, C, H, W)
-#     x, x_mean = predictor.update_fn(x, vec_t)
+  x = sde.prior_sampling(shape).to(ptu.DEVICE)  # (B, C, H, W)
+  for i in range(sde.N):
+    t = timesteps[i]
+    vec_t = torch.ones(shape[0], device=ptu.DEVICE) * t  # (B,)
+    x, x_mean = corrector.update_fn(x, vec_t)  # all: (B, C, H, W)
+    x, x_mean = predictor.update_fn(x, vec_t)
 
-#     if i % save_interval == 0 and i != sde.N - 1:
-#       print(f"current: {i + 1}/{sde.N}")
-#       img_clips.append(ptu.to_numpy(x)[0, 0][:, :, None])
+    if i % save_interval == 0 and i != sde.N - 1:
+      print(f"current: {i + 1}/{sde.N}")
+      # img_clips.append(ptu.to_numpy(x)[0, 0][:, :, None])
 
-#     if i == sde.N - 1:
-#       print(f"current: {i + 1}/{sde.N}")
-#       img_clips.append(ptu.to_numpy(x_mean)[0, 0][:, :, None])
+    if i == sde.N - 1:
+      print(f"current: {i + 1}/{sde.N}")
+      # img_clips.append(ptu.to_numpy(x_mean)[0, 0][:, :, None])
 
-#   # save as gif
-#   assert save_dir is not None
-#   if not os.path.isdir(save_dir):
-#     os.makedirs(save_dir)
+  # # save as gif
+  # assert save_dir is not None
+  # if not os.path.isdir(save_dir):
+  #   os.makedirs(save_dir)
+  #
+  # fps = kwargs.get("fps", 15)
+  # save_filename = os.path.join(save_dir, "vanilla_pc_result.gif")
+  # img_clips = [((img_iter * 2 - 1) * 255).astype(np.uint8) for img_iter in img_clips]
+  # clip = mpy.ImageSequenceClip(img_clips, fps=fps, with_mask=False)
+  # clip.write_gif(save_filename, fps=fps)
 
-#   fps = kwargs.get("fps", 15)
-#   save_filename = os.path.join(save_dir, "vanilla_pc_result.gif")
-#   img_clips = [((img_iter * 2 - 1) * 255).astype(np.uint8) for img_iter in img_clips]
-#   clip = mpy.ImageSequenceClip(img_clips, fps=fps, with_mask=False)
-#   clip.write_gif(save_filename, fps=fps)
-
-#   return img_clips, x_mean
+  # return img_clips, x_mean
+  return x_mean
