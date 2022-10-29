@@ -7,8 +7,10 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from overrides import overrides
 from pytorch_lightning.utilities import rank_zero_only
-from InverseProblemWithDiffusionModel.helpers.utils import get_data_inverse_scaler
+from InverseProblemWithDiffusionModel.helpers.utils import get_data_inverse_scaler, data_transform
 from InverseProblemWithDiffusionModel.sde.sampling import get_sampling_fn
+from InverseProblemWithDiffusionModel.ncsn.models import anneal_Langevin_dynamics
+from torchvision.utils import make_grid
 
 
 # Implementation source: https://github.com/Lightning-AI/lightning/issues/10914
@@ -131,7 +133,7 @@ class ValVisualization(pl.Callback):
         inverse_scaler = get_data_inverse_scaler(pl_module.params["if_centering"])
         sampler_fn = get_sampling_fn(**self.params, inverse_scaler=inverse_scaler)
         X_sample, n = sampler_fn(pl_module)  # X_sample: (1, C, H, W)
-        pl_module.logger.add_images("val_sample", ptu.to_numpy(X_sample), self.epoch_cnt)
+        pl_module.logger.experiment.add_image("val_sample", ptu.to_numpy(X_sample), self.epoch_cnt)
         self.epoch_cnt += 1
 
     def _collate_shape(self, shape):
@@ -143,3 +145,27 @@ class ValVisualization(pl.Callback):
 
         # (1, C, H, W)
         return shape
+
+
+class ValVisualizationDiscrete(pl.Callback):
+    def __init__(self, num_samples=1):
+        self.num_samples = num_samples
+        self.num_epochs = 0
+
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        B = self.num_samples  # sample only one image
+        x_mod = torch.rand(B, pl_module.config.data.channels, pl_module.config.data.image_size,
+                           pl_module.config.data.image_size, device=pl_module.config.device)
+        x_mod = data_transform(pl_module.config, x_mod)
+        images = anneal_Langevin_dynamics(x_mod,
+                                          pl_module.model,
+                                          pl_module.sigmas,
+                                          n_steps_each=pl_module.config.sampling.n_steps_each,
+                                          step_lr=pl_module.config.sampling.step_lr,
+                                          final_only=pl_module.config.sampling.final_only,
+                                          denoise=pl_module.config.sampling.denoise)[0]  # (B, C, H, W)
+        # images = x_mod[0]
+        images = images.detach().cpu()
+        image_grid = make_grid(images, nrow=B)
+        trainer.logger.experiment.add_image("val_sample", image_grid, self.num_epochs)
+        self.num_epochs += 1

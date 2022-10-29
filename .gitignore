@@ -3,3 +3,5 @@ experiments/
 *__pycache__
 DiffusionModelInverse.egg-info/
 *.pkl
+*.ckpt
+logs/

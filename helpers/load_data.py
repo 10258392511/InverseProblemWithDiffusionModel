@@ -16,7 +16,7 @@ def load_mnist(root_dir, mode="train"):
     transforms = [
         ToTensor(),
         Resize(32),
-        Normalize(mean=[0.], std=[1.]),
+        # Normalize(mean=[0.], std=[1.]),
     ]
     transforms = Compose(transforms)
     if_train = True if mode == "train" else False
@@ -31,7 +31,7 @@ def load_cifar10(root_dir, mode="train"):
         os.makedirs(root_dir)
     transforms = [
         ToTensor(),
-        Normalize(mean=[0.], std=[1.]),
+        # Normalize(mean=[0.], std=[1.]),
     ]
     transforms = Compose(transforms)
     if_train = True if mode == "train" else False

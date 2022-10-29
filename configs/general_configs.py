@@ -3,7 +3,7 @@ class GeneralConfig(object):
 
 general_config = GeneralConfig()
 
-general_config.max_epochs = 50
+general_config.max_epochs = 30
 general_config.batch_size = 256
 general_config.lr = 5e-4
 general_config.ema_rate = 0.99

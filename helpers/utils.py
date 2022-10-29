@@ -1,8 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import torch.optim as optim
 import os
 import SimpleITK as sitk
+import yaml
+import argparse
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from torchvision.utils import make_grid
@@ -110,3 +113,54 @@ def collate_state_dict(state_dict: dict):
         out_dict[key_updated] = state_dict[key]
 
     return out_dict
+
+
+def load_yml_file(filename: str):
+    assert ".yml" in filename
+    with open(filename, "r") as rf:
+        data = yaml.load(rf, yaml.Loader)
+
+    data = dict2namespace(data)
+
+    return data
+
+
+def dict2namespace(config):
+    namespace = argparse.Namespace()
+    for key, value in config.items():
+        if isinstance(value, dict):
+            new_value = dict2namespace(value)
+        else:
+            new_value = value
+        setattr(namespace, key, new_value)
+    return namespace
+
+
+def get_optimizer(config, parameters):
+    if config.optim.optimizer == 'Adam':
+        return optim.Adam(parameters, lr=config.optim.lr, weight_decay=config.optim.weight_decay,
+                          betas=(config.optim.beta1, 0.999), amsgrad=config.optim.amsgrad,
+                          eps=config.optim.eps)
+    elif config.optim.optimizer == 'RMSProp':
+        return optim.RMSprop(parameters, lr=config.optim.lr, weight_decay=config.optim.weight_decay)
+    elif config.optim.optimizer == 'SGD':
+        return optim.SGD(parameters, lr=config.optim.lr, momentum=0.9)
+    else:
+        raise NotImplementedError('Optimizer {} not understood.'.format(config.optim.optimizer))
+
+
+def data_transform(config, X):
+    if config.data.uniform_dequantization:
+        X = X / 256. * 255. + torch.rand_like(X) / 256.
+    if config.data.gaussian_dequantization:
+        X = X + torch.randn_like(X) * 0.01
+
+    if config.data.rescaled:
+        X = 2 * X - 1.
+    elif config.data.logit_transform:
+        X = logit_transform(X)
+
+    if hasattr(config, 'image_mean'):
+        return X - config.image_mean.to(X.device)[None, ...]
+
+    return X
