@@ -3,6 +3,10 @@ import torch
 import torch.nn as nn
 
 
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
+from InverseProblemWithDiffusionModel.helpers.utils import vis_tensor
+
+
 def get_sigmas(config):
     if config.model.sigma_dist == 'geometric':
         sigmas = torch.tensor(
@@ -204,6 +208,134 @@ def anneal_Langevin_dynamics_cls_conditioned(x_mod, cls, scorenet, clf, sigmas, 
             if verbose:
                 print("level: {}, step_size: {}, grad_norm: {}, image_norm: {}, snr: {}, grad_mean_norm: {}".format(
                     c, step_size, grad_norm.item(), image_norm.item(), snr.item(), grad_mean_norm.item()))
+
+    if denoise:
+        last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
+        last_noise = last_noise.long()
+        x_mod = x_mod + sigmas[-1] ** 2 * scorenet(x_mod, last_noise)
+        images.append(x_mod.to('cpu'))
+
+    if final_only:
+        return [x_mod.to('cpu')]
+    else:
+        return images
+
+
+@torch.no_grad()
+def anneal_Langevin_dynamics_inverse_problem(x_mod, measurement, scorenet, linear_tfm: LinearTransform, sigmas, lamdas,
+                                             n_steps_each=100, step_lr=0.000008, denoise=True, final_only=False,
+                                             perturb_measurement=False):
+    """
+    x_mod: (B, C, H, W)
+    measurement: (B, C, H_s, W_s)
+    sigmas: (L_noise,)
+    lamdas: float or (L_noise,)
+    """
+    print("sampling...")
+    if isinstance(lamdas, float):
+        lamdas = torch.ones_like(sigmas) * lamdas  # (L_noise)
+
+    images = []
+    print_interval = len(sigmas) // 10
+
+    for c, sigma in enumerate(sigmas):
+        if c % print_interval == 0:
+            print(f"{c + 1}/{len(sigmas)}")
+            # vis_tensor(x_mod)
+
+        labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
+        labels = labels.long()
+        step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
+        lamda_iter = lamdas[c]
+        measurement_iter = measurement
+        if perturb_measurement:
+            measurement_iter += sigma * linear_tfm(torch.randn_like(x_mod))
+
+        for s in range(n_steps_each):
+            grad = scorenet(x_mod, labels)  # (B, C, H, W)
+            grad_log_lh = linear_tfm.log_lh_grad(x_mod, measurement_iter, lamda_iter)  # (B, C, H, W)
+            grad_norm = torch.norm(grad)
+            grad_log_lh_norm = torch.norm(grad_log_lh)
+            # print(f"log_lh_norm: {grad_log_lh_norm}, grad_norm: {grad_norm}")
+            grad += grad_log_lh / grad_log_lh_norm * grad_norm
+
+            noise = torch.randn_like(x_mod)
+            grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
+            noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
+            x_mod = x_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
+
+            image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
+            snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
+            grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
+
+            if not final_only:
+                images.append(x_mod.to('cpu'))
+
+    if denoise:
+        last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
+        last_noise = last_noise.long()
+        x_mod = x_mod + sigmas[-1] ** 2 * scorenet(x_mod, last_noise)
+        images.append(x_mod.to('cpu'))
+
+    if final_only:
+        return [x_mod.to('cpu')]
+    else:
+        return images
+
+
+@torch.no_grad()
+def anneal_Langevin_dynamics_inverse_problem_proj(x_mod, measurement, scorenet, linear_tfm: LinearTransform,
+                                                  sigmas, lamdas, n_steps_each=100, step_lr=0.000008,
+                                                  denoise=True, final_only=False, perturb_measurement=False):
+    """
+    x_mod: (B, C, H, W)
+    measurement: (B, C, H_s, W_s)
+    sigmas: (L_noise,)
+    lamdas: float or (L_noise,)
+    """
+    if isinstance(lamdas, float):
+        lamdas = torch.ones_like(sigmas) * lamdas  # (L_noise)
+    """
+    x_mod: (B, C, H, W)
+    measurement: (B, C, H_s, W_s)
+    sigmas: (L_noise,)
+    lamdas: float or (L_noise,)
+    """
+    print("sampling...")
+    if isinstance(lamdas, float):
+        lamdas = torch.ones_like(sigmas) * lamdas  # (L_noise)
+
+    images = []
+    print_interval = len(sigmas) // 10
+
+    for c, sigma in enumerate(sigmas):
+        if c % print_interval == 0:
+            print(f"{c + 1}/{len(sigmas)}")
+            # vis_tensor(x_mod)
+
+        labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
+        labels = labels.long()
+        step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
+        lamda_iter = lamdas[c]
+        measurement_iter = measurement
+        if perturb_measurement:
+            measurement_iter += sigma * linear_tfm(torch.randn_like(x_mod))
+
+        x_mod = linear_tfm.projection(x_mod, measurement_iter, lamda_iter)
+        for s in range(n_steps_each):
+            grad = scorenet(x_mod, labels)  # (B, C, H, W)
+
+            noise = torch.randn_like(x_mod)
+            grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
+            noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
+            x_mod = x_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
+
+            image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
+            snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
+            grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
+
+            if not final_only:
+                images.append(x_mod.to('cpu'))
 
     if denoise:
         last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)

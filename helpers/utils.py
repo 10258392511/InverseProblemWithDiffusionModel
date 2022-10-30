@@ -164,3 +164,27 @@ def data_transform(config, X):
         return X - config.image_mean.to(X.device)[None, ...]
 
     return X
+
+
+def vis_tensor(X: torch.Tensor, **kwargs):
+    """
+    kwargs: figsize
+    """
+    # X: (B, C, H, W)
+    C = X.shape[1]
+    assert C > 0
+    X = X.detach().cpu()
+    img_grid = make_grid(X, nrow=X.shape[0])  # (C, H', W')
+    figsize = kwargs.get("figsize", (general_config.figsize_unit, general_config.figsize_unit))
+    fig, axis = plt.subplots(figsize=figsize)
+    if C == 3:
+        axis.imshow(img_grid.permute(1, 2, 0).numpy())
+    else:
+        handle = axis.imshow(img_grid[0, ...].numpy(), cmap="gray")
+        plt.colorbar(handle, ax=axis)
+
+
+    plt.show()
+    plt.close()
+
+    return fig
