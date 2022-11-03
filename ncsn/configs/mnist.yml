@@ -8,7 +8,7 @@ training:
   log_all_sigmas: false
 
 sampling:
-  batch_size: 10
+  batch_size: 1
   data_init: false
   step_lr: 0.0000062
   n_steps_each: 5

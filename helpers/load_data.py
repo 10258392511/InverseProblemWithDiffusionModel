@@ -4,6 +4,7 @@ import scipy.io as sio
 import os
 import glob
 import random
+import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from monai.transforms import (
     Compose,
@@ -194,7 +195,6 @@ class Flatten3D(MapTransform):
 
 def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train", seed=0, num_workers=4):
     # seg_label: 3: left MYO
-    # TODO: test this
     assert mode in ["train", "val", "test"]
     keys = [CommonKeys.IMAGE, CommonKeys.LABEL]
 
@@ -234,11 +234,14 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
     return ds_out
 
 
-def load_config(ds_name, mode="real-valued"):
+def load_config(ds_name, mode="real-valued", device=None):
     assert mode in ["real-valued", "mag", "complex"]
     assert ds_name in REGISTERED_DATA_CONFIG_FILENAME.keys()
+    if device is None:
+        device = ptu.DEVICE
     config_path = REGISTERED_DATA_CONFIG_FILENAME[ds_name]
     config_namespace = load_yml_file(config_path)
+    config_namespace.device = device
     if mode == "real-valued":
         pass
 

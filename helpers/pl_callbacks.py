@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import Optional, Union, Dict, Any
 
 import pytorch_lightning as pl
+import numpy as np
 import torch
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
@@ -11,6 +12,7 @@ from InverseProblemWithDiffusionModel.helpers.utils import get_data_inverse_scal
 from InverseProblemWithDiffusionModel.sde.sampling import get_sampling_fn
 from InverseProblemWithDiffusionModel.ncsn.models import anneal_Langevin_dynamics
 from torchvision.utils import make_grid
+from monai.utils import CommonKeys
 
 
 # Implementation source: https://github.com/Lightning-AI/lightning/issues/10914
@@ -154,7 +156,10 @@ class ValVisualizationDiscrete(pl.Callback):
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         B = self.num_samples  # sample only one image
-        x_mod = torch.rand(B, pl_module.config.data.channels, pl_module.config.data.image_size,
+        num_channels = pl_module.config.data.channels
+        if pl_module.params["data_mode"] == "complex":
+            num_channels = 2
+        x_mod = torch.rand(B, num_channels, pl_module.config.data.image_size,
                            pl_module.config.data.image_size, device=pl_module.config.device)
         x_mod = data_transform(pl_module.config, x_mod)
         images = anneal_Langevin_dynamics(x_mod,
@@ -164,8 +169,29 @@ class ValVisualizationDiscrete(pl.Callback):
                                           step_lr=pl_module.config.sampling.step_lr,
                                           final_only=pl_module.config.sampling.final_only,
                                           denoise=pl_module.config.sampling.denoise)[0]  # (B, C, H, W)
-        # images = x_mod[0]
+        # (B, C, H, W) -> (B, 1, H, W)
+        images = images[:, 0:1, ...]
         images = images.detach().cpu()
         image_grid = make_grid(images, nrow=B)
         trainer.logger.experiment.add_image("val_sample", image_grid, self.num_epochs)
+        self.num_epochs += 1
+
+
+class ValVisualizationSeg(pl.Callback):
+    def __init__(self):
+        super(ValVisualizationSeg, self).__init__()
+        self.num_epochs = 0
+
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        ds = pl_module.ds_dict["val"]
+        idx = np.random.randint(len(ds))
+        data_dict = ds[idx]
+        # image: (1, H, W); label: (1, H, W)
+        img, label = data_dict[CommonKeys.IMAGE], data_dict[CommonKeys.LABEL]
+        img = img.unsqueeze(0)  # (1, 1, H, W)
+        img_in = collate_batch(img, self.params["data_mode"])  # (1, C, H, W)
+        pred = pl.model(img_in).squeeze(0)  # (1, 1, H, W) -> (1, H, W)
+        trainer.logger.experiment.add_image("img", img[0], self.num_epochs)
+        trainer.logger.experiment.add_image("label", label, self.num_epochs)
+        trainer.logger.experiment.add_image("pred", pred, self.num_epochs)
         self.num_epochs += 1
