@@ -310,8 +310,10 @@ class TrainSeg(pl.LightningModule):
 
 
 def get_score_model_trainer(callbacks: List[pl.Callback], mode="train", log_dir=".", log_name="lightning_logs",
-                            if_monitor=True):
+                            num_epochs=-1, if_monitor=True, return_log_dir=False):
     assert mode in ["train", "debug"]
+    if num_epochs == -1:
+        num_epochs = general_config.max_epochs
     time_stamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
     logger = TensorBoardLogger(log_dir, name=log_name, version=time_stamp)
     ckpt_path = os.path.join(log_dir, log_name, time_stamp, "checkpoints")
@@ -343,9 +345,12 @@ def get_score_model_trainer(callbacks: List[pl.Callback], mode="train", log_dir=
         train_params_cp.update({
             # "precision": 16,
             "num_sanity_val_steps": -1,
-            "max_epochs": general_config.max_epochs,
+            "max_epochs": num_epochs,
             "check_val_every_n_epoch": 1
         })
         trainer = pl.Trainer(**train_params_cp)
+
+    if return_log_dir:
+        return trainer, os.path.join(log_dir, log_name, time_stamp)
 
     return trainer

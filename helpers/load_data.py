@@ -26,21 +26,20 @@ from typing import Union
 from InverseProblemWithDiffusionModel.helpers.utils import load_yml_file
 
 
+parent_dir = os.path.dirname(os.path.dirname(__file__))
 # change this
 REGISTERED_DATA_ROOT_DIR = {
-    "MNIST": "../data",
-    "CINE64": "../data/score_labs/data/cine_64",
-    "CINE127": "../data/score_labs/data/cine_127",
+    "MNIST": os.path.join(parent_dir, "data"),
+    "CINE64": os.path.join(parent_dir, "data/score_labs/data/cine_64"),
+    "CINE127": os.path.join(parent_dir, "../data/score_labs/data/cine_127"),
     "ACDC": "E:\Datasets\ACDC_textures\data_slices"
 }
 
-
-# change this
 REGISTERED_DATA_CONFIG_FILENAME = {
-    "MNIST": "../ncsn/configs/mnist.yml",
-    "CINE64": "../ncsn/configs/cine64.yml",
-    "CINE127": "../ncsn/configs/cine127.yml",
-    "ACDC": "../ncsn/configs/acdc.yml"
+    "MNIST": os.path.join(parent_dir, "ncsn/configs/mnist.yml"),
+    "CINE64": os.path.join(parent_dir, "ncsn/configs/cine64.yml"),
+    "CINE127": os.path.join(parent_dir, "ncsn/configs/cine127.yml"),
+    "ACDC": os.path.join(parent_dir, "ncsn/configs/acdc.yml")
 }
 
 
@@ -95,7 +94,7 @@ def load_cifar10(root_dir, mode="train"):
 
 def load_cine(root_dir, mode="train", img_key="imgs", flatten=True,
               resize_shape: Union[int, None] = None):
-    assert mode in ["train", "val" "test"]
+    assert mode in ["train", "val", "test"]
     if mode == "val":
         mode = "test"
     filename = glob.glob(os.path.join(root_dir, f"*{mode}*.mat"))[0]

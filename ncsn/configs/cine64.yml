@@ -1,5 +1,5 @@
 training:
-  batch_size: 32
+  batch_size: 32  # 32
   n_epochs: 500000
   n_iters: 80001
   snapshot_freq: 5000

@@ -1,4 +1,5 @@
 import yaml
+import os
 
 from InverseProblemWithDiffusionModel.ncsn.models.ncsnv2 import NCSNv2Deepest
 from InverseProblemWithDiffusionModel.ncsn.models.classifiers import ResNetClf
@@ -6,7 +7,9 @@ from monai.networks.nets import UNet
 from InverseProblemWithDiffusionModel.helpers.load_data import load_config
 from InverseProblemWithDiffusionModel.helpers.utils import load_yml_file
 
-with open("../ncsn/configs/general_config.yml", "r") as rf:
+current_dir = os.path.dirname(__file__)
+parent_dir = os.path.dirname(current_dir)
+with open(os.path.join(parent_dir, "ncsn/configs/general_config.yml"), "r") as rf:
     general_config = yaml.load(rf, yaml.Loader)
 
 
