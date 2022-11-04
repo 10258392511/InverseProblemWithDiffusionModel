@@ -1,0 +1,4 @@
+ds_name: CINE64
+task_name: Diffusion
+mode: real-valued
+num_workers: 16

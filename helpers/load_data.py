@@ -31,8 +31,8 @@ parent_dir = os.path.dirname(os.path.dirname(__file__))
 REGISTERED_DATA_ROOT_DIR = {
     "MNIST": os.path.join(parent_dir, "data"),
     "CINE64": os.path.join(parent_dir, "data/score_labs/data/cine_64"),
-    "CINE127": os.path.join(parent_dir, "../data/score_labs/data/cine_127"),
-    "ACDC": "E:\Datasets\ACDC_textures\data_slices"
+    "CINE127": os.path.join(parent_dir, "data/score_labs/data/cine_127"),
+    "ACDC": "/scratch/zhexwu/data/ACDC_textures/data_slices"
 }
 
 REGISTERED_DATA_CONFIG_FILENAME = {

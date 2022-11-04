@@ -1,6 +1,6 @@
 import sys
 
-path = "D:\\testings\\Python\\TestingPython\\"
+path = "/scratch/zhexwu"
 if path not in sys.path:
     sys.path.append(path)
 
@@ -21,6 +21,7 @@ if __name__ == '__main__':
     parser.add_argument("--ds_name", required=True)
     parser.add_argument("--task_name", required=True)
     parser.add_argument("--mode", required=True)
+    parser.add_argument("--num_workers", type=int, default=16)
     args = vars(parser.parse_args())
     ds_name = args["ds_name"]
     task_name = args["task_name"]
@@ -40,7 +41,8 @@ if __name__ == '__main__':
     params = {
         "batch_size": config.training.batch_size,
         "lr": config.optim.lr,
-        "data_mode": mode
+        "data_mode": mode,
+        "num_workers": args["num_workers"]
     }
     lit_model = TrainScoreModelDiscrete(model, ds_dict, params)
     callbacks = [EMA(config.model.ema_rate)]

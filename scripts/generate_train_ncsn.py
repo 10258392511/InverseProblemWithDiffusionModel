@@ -6,12 +6,13 @@ import argparse
 
 
 def make_bash_script(hyper_param_dict: dict):
+    filename = create_filename(hyper_param_dict)
     bash_script = f"""#!/bin/bash
-
+source $VIRTUALENV_PATH_DIFFUSION
 CUDA_VISIBLE_DEVICES=0
-cd ../InverseProblemWithDiffusion
+cd ../InverseProblemWithDiffusionModel
 
-python scripts/train_ncsn.py --ds_name {hyper_param_dict["ds_name"]} --task_name {hyper_param_dict["task_name"]} --mode {hyper_param_dict["mode"]}"""
+python3 scripts/train_ncsn.py --ds_name {hyper_param_dict["ds_name"]} --task_name {hyper_param_dict["task_name"]} --mode {hyper_param_dict["mode"]}"""
 
     return bash_script
 

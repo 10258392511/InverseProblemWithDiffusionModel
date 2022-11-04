@@ -1,0 +1,4 @@
+ds_name: CINE127
+task_name: Diffusion
+mode: complex
+num_workers: 16

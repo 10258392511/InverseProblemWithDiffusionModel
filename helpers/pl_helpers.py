@@ -325,12 +325,12 @@ def get_score_model_trainer(callbacks: List[pl.Callback], mode="train", log_dir=
     trainer = None
     train_params = dict(
         # default_root_dir=os.path.dirname(ckpt_path),
-        accelerator="cpu",
+        accelerator="gpu",
         devices=1,
         logger=logger,
         callbacks=callbacks,
-        limit_train_batches=2,
-        limit_val_batches=2
+        # limit_train_batches=2,
+        # limit_val_batches=2
     )
 
     if mode == "debug":

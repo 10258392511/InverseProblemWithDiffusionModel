@@ -1,8 +1,15 @@
+import sys
+
+path = "/scratch/zhexwu"
+if not path in sys.path:
+    sys.path.append(path)
+
+
 from InverseProblemWithDiffusionModel.helpers.load_data import vol2slice
 
 # change this
-root_dir = "E:\Datasets\ACDC_textures\data"
-save_dir = "E:\Datasets\ACDC_textures\data_slices"
+root_dir = "/scratch/shared/ACDC_textures/data"
+save_dir = "/scratch/zhexwu/data/ACDC_textures/data_slices"
 
 
 if __name__ == '__main__':
