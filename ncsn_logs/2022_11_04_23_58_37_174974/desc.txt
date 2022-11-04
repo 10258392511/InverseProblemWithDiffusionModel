@@ -1,4 +1,0 @@
-ds_name: CINE127
-task_name: Diffusion
-mode: real-valued
-num_workers: 16

@@ -1,4 +1,0 @@
-ds_name: MNIST
-task_name: Diffusion
-mode: complex
-num_workers: 16

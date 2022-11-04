@@ -4,4 +4,4 @@ experiments/
 DiffusionModelInverse.egg-info/
 *.pkl
 *.ckpt
-logs/
+*logs/

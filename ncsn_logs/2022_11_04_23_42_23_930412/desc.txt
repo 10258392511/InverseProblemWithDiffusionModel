@@ -1,4 +1,0 @@
-ds_name: CINE64
-task_name: Diffusion
-mode: complex
-num_workers: 16
