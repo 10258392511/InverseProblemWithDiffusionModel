@@ -41,7 +41,7 @@ if __name__ == '__main__':
     config = load_config(args_dict["ds_name"], args_dict["mode"], device)
     scorenet = reload_model("Diffusion", args_dict["ds_name"], args_dict["mode"])
     ALD_sampler_params = {
-        "n_steps_each": confg.sampling.n_steps_each,
+        "n_steps_each": config.sampling.n_steps_each,
         "step_lr": config.sampling.step_lr,
         "final_only": config.sampling.final_only,
         "denoise": config.sampling.denoise

@@ -1,4 +1,5 @@
 import abc
+import torch
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from . import freeze_model, compute_clf_grad, compute_seg_grad
@@ -28,6 +29,7 @@ class ALDOptimizer(abc.ABC):
             ALDInvClf: lamda
             ALDInvSeg: lamda
         """
+        scorenet = self.scorenet
         sigmas = self.sigmas
         n_steps_each = self.params["n_steps_each"]
         step_lr = self.params["step_lr"]

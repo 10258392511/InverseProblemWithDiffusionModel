@@ -1,4 +1,0 @@
-ds_name: MNIST
-task_name: Clf
-mode: real-valued
-num_workers: 0

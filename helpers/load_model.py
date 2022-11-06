@@ -25,10 +25,18 @@ TASK_NAME_TO_MODEL_CTOR = {
 }
 
 
+# RELOAD_ROOT_DIRS = {
+#     "Diffusion": r"E:\ncsn_logs",
+#     "Clf": r"D:\testings\Python\TestingPython\InverseProblemWithDiffusionModel\clf_logs",
+#     "Seg": r"D:\testings\Python\TestingPython\InverseProblemWithDiffusionModel\seg_logs"
+# }
+
+
+
 RELOAD_ROOT_DIRS = {
-    "Diffusion": r"E:\ncsn_logs",
-    "Clf": r"D:\testings\Python\TestingPython\InverseProblemWithDiffusionModel\clf_logs",
-    "Seg": r"D:\testings\Python\TestingPython\InverseProblemWithDiffusionModel\seg_logs"
+    "Diffusion": r"/scratch/zhexwu/InverseProblemWithDiffusionModel/ncsn_logs",
+    "Clf": r"/scratch/zhexwu/InverseProblemWithDiffusionModel/clf_logs",
+    "Seg": r"/scratch/zhexwu/InverseProblemWithDiffusionModel/seg_logs",
 }
 
 
