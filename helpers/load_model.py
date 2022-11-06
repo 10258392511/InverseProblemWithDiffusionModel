@@ -20,11 +20,11 @@ TASK_NAME_TO_MODEL_CTOR = {
 }
 
 
-def load_model(config, task_name):
+def load_model(config, task_name, use_net_params=False):
     global general_config
     assert task_name in TASK_NAME_TO_MODEL_CTOR
     net_ctor = TASK_NAME_TO_MODEL_CTOR[task_name]
-    if config is None:
+    if use_net_params:
         net_params = general_config[task_name]
         net_params["in_channels"] = config.data.channels
 

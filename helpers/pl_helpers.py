@@ -262,6 +262,7 @@ class TrainSeg(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # (B, C, H, W)
         img, label = batch[CommonKeys.IMAGE], batch[CommonKeys.LABEL]
+        # print(f"img: {img.shape}, label: {label.shape}")
         img = collate_batch(img, self.params["data_mode"])
         loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
         out_dict = {"loss": loss}

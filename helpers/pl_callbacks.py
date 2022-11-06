@@ -11,6 +11,7 @@ from pytorch_lightning.utilities import rank_zero_only
 from InverseProblemWithDiffusionModel.helpers.utils import get_data_inverse_scaler, data_transform
 from InverseProblemWithDiffusionModel.sde.sampling import get_sampling_fn
 from InverseProblemWithDiffusionModel.ncsn.models import anneal_Langevin_dynamics
+from InverseProblemWithDiffusionModel.helpers.load_data import collate_batch
 from torchvision.utils import make_grid
 from monai.utils import CommonKeys
 
@@ -182,15 +183,17 @@ class ValVisualizationSeg(pl.Callback):
         super(ValVisualizationSeg, self).__init__()
         self.num_epochs = 0
 
-    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", device=None) -> None:
+        if device is None:
+            device = ptu.DEVICE
         ds = pl_module.ds_dict["val"]
         idx = np.random.randint(len(ds))
         data_dict = ds[idx]
         # image: (1, H, W); label: (1, H, W)
         img, label = data_dict[CommonKeys.IMAGE], data_dict[CommonKeys.LABEL]
         img = img.unsqueeze(0)  # (1, 1, H, W)
-        img_in = collate_batch(img, self.params["data_mode"])  # (1, C, H, W)
-        pred = pl.model(img_in).squeeze(0)  # (1, 1, H, W) -> (1, H, W)
+        img_in = collate_batch(img, pl_module.params["data_mode"])  # (1, C, H, W)
+        pred = pl_module.model(img_in.to(device)).squeeze(0)  # (1, 1, H, W) -> (1, H, W)
         trainer.logger.experiment.add_image("img", img[0], self.num_epochs)
         trainer.logger.experiment.add_image("label", label, self.num_epochs)
         trainer.logger.experiment.add_image("pred", pred, self.num_epochs)
