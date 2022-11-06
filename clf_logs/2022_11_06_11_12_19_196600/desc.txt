@@ -1,0 +1,4 @@
+ds_name: MNIST
+task_name: Clf
+mode: complex
+num_workers: 0
