@@ -1,11 +1,12 @@
 import sys
+import os
 
-path = "/scratch/zhexwu"
+# path = "/scratch/zhexwu"
+path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if path not in sys.path:
     sys.path.append(path)
 
 import argparse
-import os
 
 from InverseProblemWithDiffusionModel.helpers.load_data import load_data, load_config
 from InverseProblemWithDiffusionModel.helpers.pl_helpers import TrainScoreModelDiscrete, get_score_model_trainer
