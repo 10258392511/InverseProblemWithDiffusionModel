@@ -12,7 +12,7 @@ source $VIRTUALENV_PATH_DIFFUSION
 CUDA_VISIBLE_DEVICES=0
 cd ../InverseProblemWithDiffusionModel
 
-python3 scripts/train_ncsn.py --ds_name {hyper_param_dict["ds_name"]} --task_name {hyper_param_dict["task_name"]} --mode {hyper_param_dict["mode"]}"""
+python3 scripts/train_ncsn.py --ds_name {hyper_param_dict["ds_name"]} --task_name {hyper_param_dict["task_name"]} --mode {hyper_param_dict["mode"]} --num_workers {hyper_param_dict["num_workers"]}"""
 
     return bash_script
 
@@ -45,6 +45,10 @@ if __name__ == '__main__':
                 "task_name": "Diffusion",
                 "mode": mode
             })
+            if ds_name == "ACDC":
+                hyper_params[i + 1][-1]["num_workers"] = 0
+            else:
+                hyper_params[i + 1][-1]["num_workers"] = 16
 
     hyper_params_list = hyper_params[args.set_num]
     for hyper_param_dict_iter in hyper_params_list:

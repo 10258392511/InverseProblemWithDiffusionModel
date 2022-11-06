@@ -118,6 +118,7 @@ class TrainScoreModelDiscrete(pl.LightningModule):
             X = batch[CommonKeys.IMAGE]
         else:
             X = batch
+        # print(f"{X.shape}, {X.dtype}")
         # X: (B, C, H, W)
         X = collate_batch(X, self.params["data_mode"])
         loss = self.loss_fn(self.model, X, self.sigmas)
@@ -134,6 +135,7 @@ class TrainScoreModelDiscrete(pl.LightningModule):
             X = batch[CommonKeys.IMAGE]
         else:
             X = batch
+
         # X: (B, C, H, W)
         X = collate_batch(X, self.params["data_mode"])
         loss = self.loss_fn(self.model, X, self.sigmas)
