@@ -157,15 +157,41 @@ def freeze_model(model: nn.Module):
 def compute_clf_grad(clf, X, cls):
     # X: (B, C, H, W); cls: (B,)
     torch.set_grad_enabled(True)
-    grad_out = torch.empty_like(X)
-    for idx in range(cls.shape[0]):
-        X_iter = X[idx : idx + 1, ...]  # (1, C, H, W)
-        X_iter.requires_grad = True
-        y_pred = clf(X_iter)  # (1, num_cls)
-        y_pred = torch.softmax(y_pred, dim=-1)  # (1, num_cls)
-        y_sel = torch.log(y_pred[0, cls[idx]])  # float
-        y_sel.backward()
-        grad_out[idx : idx + 1] = X_iter.grad
+    # grad_out = torch.empty_like(X)
+    # for idx in range(cls.shape[0]):
+    #     X_iter = X[idx : idx + 1, ...]  # (1, C, H, W)
+    #     X_iter.requires_grad = True
+    #     y_pred = clf(X_iter)  # (1, num_cls)
+    #     y_pred = torch.softmax(y_pred, dim=-1)  # (1, num_cls)
+    #     y_sel = torch.log(y_pred[0, cls[idx]])  # float
+    #     y_sel.backward()
+    #     grad_out[idx : idx + 1] = X_iter.grad
+    X.requires_grad = True
+    y_pred = clf(X)  # (B,, num_cls)
+    y_pred = torch.softmax(y_pred, dim=1)  # (B, num_cls)
+    y_pred_sel = torch.gather(y_pred, dim=1, index=cls.unsqueeze(1)).squeeze()  # (B, 1) -> (B,)
+    loss = torch.log(y_pred_sel).sum()
+    loss.backward()
+    grad_out = X.grad
+
+    torch.set_grad_enabled(False)
+
+    return grad_out
+
+
+def compute_seg_grad(seg, X, label):
+    # X: (B, C, H, W); label: (B, 1, H, W)
+    # TODO: test this
+    torch.set_grad_enabled(True)
+    X.requires_grad = True
+    y_pred = seg(X)  # (B, num_cls, H, W)
+    y_pred = torch.softmax(y_pred, dim=1)  # (B, num_cls, H, W)
+    y_pred_sel = torch.gather(y_pred, dim=1, index=label)  # (B, 1, H, W)
+    # (B, 1, H, W) -> (B,) -> float
+    # TODO: requiring re-scale the grad later, so for each image "mean" is used to avoid numerical instability
+    loss = torch.log(y_pred_sel).mean(dim=(1, 2, 3)).sum()
+    loss.backward()
+    grad_out = X.grad
 
     torch.set_grad_enabled(False)
 
@@ -191,7 +217,8 @@ def anneal_Langevin_dynamics_cls_conditioned(x_mod, cls, scorenet, clf, sigmas, 
 
         for s in range(n_steps_each):
             grad = scorenet(x_mod, labels)  # (B, C, H, W)
-            grad_log_lh = compute_clf_grad(clf, x_mod.clone(), cls)  # (B, C, H, W)
+            grad_log_lh = compute_clf_grad(clf, x_mod, cls)  # (B, C, H, W)
+            # grad_log_lh = compute_clf_grad(clf, x_mod.clone(), cls)  # (B, C, H, W)
             grad += grad_log_lh
 
             noise = torch.randn_like(x_mod)

@@ -184,7 +184,19 @@ def vis_tensor(X: torch.Tensor, **kwargs):
         plt.colorbar(handle, ax=axis)
 
 
-    plt.show()
-    plt.close()
+    # plt.show()
+    # plt.close()
 
     return fig
+
+
+def create_filename(args_dict: dict, suffix: str):
+    str_out = ""
+    for i, (key, val) in enumerate(args_dict.keys()):
+        if i == 0:
+            str_out += f"{key}_{val}"
+        else:
+            str_out += f"_{key}_{val}"
+    str_out += suffix
+
+    return str_out

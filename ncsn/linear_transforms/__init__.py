@@ -30,3 +30,25 @@ class LinearTransform(abc.ABC):
         grad = -self.conj_op(diff) * lamda
 
         return grad
+
+
+def i2k_complex(X):
+    """
+    X: (B, C, D, H, W) or (B, C, H, W)
+    """
+    X = X.to(torch.complex64)
+    X_k_space = torch.fft.fftn(X, dim=[-1, -2])
+    X_k_space_shifted = torch.fft.fftshift(X_k_space, dim=[-1, -2])
+
+    return X_k_space_shifted
+
+
+def k2i_complex(X):
+    """
+    X: (B, C, D, H, W) or (B, C, H, W)
+    """
+    X = X.to(torch.complex64)
+    X_i_shifted = torch.fft.ifftshift(X, dim=[-1, -2])
+    X_img = torch.fft.ifftn(X_i_shifted, dim=[-1, -2])
+
+    return X_img

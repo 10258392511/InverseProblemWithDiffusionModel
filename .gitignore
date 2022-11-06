@@ -5,3 +5,4 @@ DiffusionModelInverse.egg-info/
 *.pkl
 *.ckpt
 *logs/
+outputs/
