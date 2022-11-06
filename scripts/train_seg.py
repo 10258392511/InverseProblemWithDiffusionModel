@@ -53,7 +53,7 @@ if __name__ == '__main__':
         mode="train",
         log_dir=log_dir,
         log_name=log_name,
-        num_epochs=200,
+        num_epochs=2000,
         return_log_dir=True
     )
 

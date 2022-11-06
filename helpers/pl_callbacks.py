@@ -193,7 +193,8 @@ class ValVisualizationSeg(pl.Callback):
         img, label = data_dict[CommonKeys.IMAGE], data_dict[CommonKeys.LABEL]
         img = img.unsqueeze(0)  # (1, 1, H, W)
         img_in = collate_batch(img, pl_module.params["data_mode"])  # (1, C, H, W)
-        pred = pl_module.model(img_in.to(device)).squeeze(0)  # (1, 1, H, W) -> (1, H, W)
+        pred = pl_module.model(img_in.to(device)).squeeze(0)  # (1, 2, H, W) -> (2, H, W)
+        pred = pred.argmax(dim=0, keepdim=True)
         trainer.logger.experiment.add_image("img", img[0], self.num_epochs)
         trainer.logger.experiment.add_image("label", label, self.num_epochs)
         trainer.logger.experiment.add_image("pred", pred, self.num_epochs)
