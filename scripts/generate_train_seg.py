@@ -42,7 +42,7 @@ if __name__ == '__main__':
         for mode in modes:
             hyper_params[i + 1].append({
                 "ds_name": ds_name,
-                "task_name": "Diffusion",
+                "task_name": "Seg",
                 "mode": mode,
                 "num_workers": 0
             })

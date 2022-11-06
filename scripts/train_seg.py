@@ -16,7 +16,7 @@ from InverseProblemWithDiffusionModel.helpers.pl_callbacks import ValVisualizati
 
 if __name__ == '__main__':
     """
-    python scripts/train_seg.py --ds_name ACDC --task_name Diffusion --mode complex
+    python scripts/train_seg.py --ds_name ACDC --task_name Seg --mode complex
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--ds_name", required=True)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
         "val": val_ds
     }
     config = load_config(ds_name, mode=mode)
-    model = load_model(config, task_name)
+    model = load_model(config, task_name, use_net_params=True)
     params = {
         "batch_size": config.training.seg_batch_size,
         "lr": config.optim.lr,
@@ -46,14 +46,14 @@ if __name__ == '__main__':
         "num_workers": args["num_workers"],
         "num_cls": 2
     }
-    lit_model = TrainScoreModelDiscrete(model, ds_dict, params)
+    lit_model = TrainSeg(model, ds_dict, params, config)
     callbacks = [ValVisualizationSeg()]
     trainer, log_dir_full = get_score_model_trainer(
         callbacks=callbacks,
         mode="train",
         log_dir=log_dir,
         log_name=log_name,
-        num_epochs=100,
+        num_epochs=200,
         return_log_dir=True
     )
 
