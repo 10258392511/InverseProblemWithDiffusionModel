@@ -168,12 +168,12 @@ class LoadDataNumpyDict(Transform):
             CommonKeys.LABEL: None
         }
         image, label, _, _, _ = load_tissue_data(filename)  # (1, H, W), (1, H, W)
-        label_out = np.zeros_like(label)
+        label_out = np.zeros_like(label, dtype=np.int64)
         for seg_label_iter in seg_labels:
             mask_iter = (label == seg_label_iter)
             label_out[mask_iter] = seg_label_iter
         image = torch.tensor(image).float()
-        label_out = torch.LongTensor(label_out)
+        label_out = torch.tensor(label_out).long()
         # data_out[CommonKeys.IMAGE] = image.permute(0, 2, 3, 1)  # (1, H, W, D)
         # data_out[CommonKeys.LABEL] = label_out.permute(0, 2, 3, 1)  # (1, H, W, D)
         data_out[CommonKeys.IMAGE] = image
