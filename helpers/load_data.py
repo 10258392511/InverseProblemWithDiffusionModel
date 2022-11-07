@@ -233,7 +233,7 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
     if if_aug:
         ds_out = CacheDataset(filenames, transform=transforms, num_workers=num_workers)
     else:
-        ds_out = m_Dataset(filenames, transforms=transforms, num_workers=num_workers)
+        ds_out = m_Dataset(filenames, transform=transforms)
 
     return ds_out
 
