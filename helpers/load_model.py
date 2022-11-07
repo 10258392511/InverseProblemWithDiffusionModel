@@ -19,7 +19,7 @@ with open(os.path.join(parent_dir, "ncsn/configs/general_config.yml"), "r") as r
 
 
 TASK_NAME_TO_MODEL_CTOR = {
-    "Diffusion": NCSNv2,
+    "Diffusion": NCSNv2Deepest,
     "Clf": ResNetClf,
     "Seg": UNet
 }

@@ -31,8 +31,8 @@ if __name__ == '__main__':
     log_dir = "./"
     log_name = "ncsn_logs"
 
-    train_ds = load_data(ds_name, "train")
-    val_ds = load_data(ds_name, "val")
+    train_ds = load_data(ds_name, "train", if_aug=False)
+    val_ds = load_data(ds_name, "val", if_aug=False)
     ds_dict = {
         "train": train_ds,
         "val": val_ds

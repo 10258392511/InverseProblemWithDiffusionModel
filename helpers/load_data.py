@@ -17,6 +17,7 @@ from monai.transforms import (
     RandAdjustContrastd
 )
 from monai.data import CacheDataset
+from monai.data import Dataset as m_Dataset
 from monai.utils import CommonKeys
 from torch.utils.data import TensorDataset
 from torchvision.datasets import MNIST, CIFAR10
@@ -193,7 +194,7 @@ class Flatten3D(MapTransform):
         return data
 
 
-def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train", seed=0, num_workers=4):
+def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train", seed=0, num_workers=4, if_aug=True):
     # seg_label: 3: left MYO
     assert mode in ["train", "val", "test"]
     keys = [CommonKeys.IMAGE, CommonKeys.LABEL]
@@ -217,7 +218,7 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
         CropForegroundd(keys=keys, source_key=CommonKeys.IMAGE),
     ]
 
-    if mode == "train":
+    if mode == "train" and if_aug:
         transforms += [
             RandRotated(keys=keys, range_x=np.deg2rad(15), mode=("bilinear", "nearest"), prob=.5),
             RandAdjustContrastd(keys=CommonKeys.IMAGE, prob=.5)
@@ -229,7 +230,10 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
     ]
 
     transforms = Compose(transforms)
-    ds_out = CacheDataset(filenames, transform=transforms, num_workers=num_workers)
+    if if_aug:
+        ds_out = CacheDataset(filenames, transform=transforms, num_workers=num_workers)
+    else:
+        ds_out = m_Dataset(filenames, transforms=transforms, num_workers=num_workers)
 
     return ds_out
 
