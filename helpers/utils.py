@@ -197,6 +197,7 @@ def create_filename(args_dict: dict, suffix: str):
             str_out += f"{key}_{val}"
         else:
             str_out += f"_{key}_{val}"
+    str_out = str_out.replace(".", "_")
     str_out += suffix
 
     return str_out

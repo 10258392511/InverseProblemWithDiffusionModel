@@ -107,11 +107,17 @@ class ALDInvClf(ALDOptimizer):
 
     def adjust_grad(self, grad, x_mod, **kwargs):
         """
-        kwargs: cls, lamda
+        kwargs: cls, lamda (on clf)
         """
-        # TODO: add balanced inverse problem and clf
-        grad_log_lh = compute_clf_grad(self.clf, x_mod, cls=kwargs["cls"])
-        grad += grad_log_lh
+        cls = kwargs["cls"]
+        lamda = kwargs["lamda"]
+        grad_norm = (grad ** 2).sum(dim=(1, 2, 3), keepdim=True)  # (B, 1, 1, 1)
+        grad_log_lh_clf = compute_clf_grad(self.clf, x_mod, cls=kwargs["cls"])
+        # (B, C, H, W)
+        grad_log_lh_measurement = self.linear_tfm.log_lh_grad(x_mod, self.measurement, lamda)
+        grad_log_lh_measurement_norm = (grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True)  # (B, 1, 1, 1)
+        grad_log_lh_measurement = grad_log_lh_measurement / grad_log_lh_measurement_norm * grad_norm
+        grad += grad_log_lh_clf * lamda + grad_log_lh_measurement * (1 - lamda)
 
         return grad
 
