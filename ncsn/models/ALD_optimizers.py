@@ -29,6 +29,7 @@ class ALDOptimizer(abc.ABC):
             ALDInvClf: lamda
             ALDInvSeg: lamda
         """
+        torch.set_grad_enabled(False)
         scorenet = self.scorenet
         sigmas = self.sigmas
         n_steps_each = self.params["n_steps_each"]

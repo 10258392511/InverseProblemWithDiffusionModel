@@ -192,7 +192,7 @@ def vis_tensor(X: torch.Tensor, **kwargs):
 
 def create_filename(args_dict: dict, suffix: str):
     str_out = ""
-    for i, (key, val) in enumerate(args_dict.keys()):
+    for i, (key, val) in enumerate(args_dict.items()):
         if i == 0:
             str_out += f"{key}_{val}"
         else:

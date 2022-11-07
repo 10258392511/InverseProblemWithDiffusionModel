@@ -4,7 +4,7 @@ import os
 import glob
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
-from InverseProblemWithDiffusionModel.ncsn.models.ncsnv2 import NCSNv2Deepest
+from InverseProblemWithDiffusionModel.ncsn.models.ncsnv2 import NCSNv2Deepest, NCSNv2
 from InverseProblemWithDiffusionModel.ncsn.models.classifiers import ResNetClf
 from monai.networks.nets import UNet
 from InverseProblemWithDiffusionModel.helpers.load_data import load_config
@@ -19,7 +19,7 @@ with open(os.path.join(parent_dir, "ncsn/configs/general_config.yml"), "r") as r
 
 
 TASK_NAME_TO_MODEL_CTOR = {
-    "Diffusion": NCSNv2Deepest,
+    "Diffusion": NCSNv2,
     "Clf": ResNetClf,
     "Seg": UNet
 }
@@ -55,8 +55,8 @@ RELOAD_MODEL_DIRS = {
             "complex": "2022_11_05_00_02_01_120409"
         },
         "ACDC": {
-            "real-valued": None,
-            "complex": None
+            "real-valued": "2022_11_06_10_31_37_664067",
+            "complex": "2022_11_06_10_33_18_800623"
         }
     },
 
@@ -129,7 +129,7 @@ def reload_ncsn(model, config, task_name, ds_name):
                                      "checkpoints", "*.ckpt")
     ckpt_path = glob.glob(ckpt_path_pattern)[0]
     ckpt = torch.load(ckpt_path)
-    lit_model.load_from_checkpoint(ckpt_path, score_model=model, ds_dict=ds_dict, params=params)
+    lit_model.load_from_checkpoint(ckpt_path, score_model=model, ds_dict=ds_dict, params=params, map_location=ptu.DEVICE)
     state_dict_out = collate_state_dict(ckpt["callbacks"]["EMA"]["ema_state_dict"])
     model_reload = lit_model.model.to(ptu.DEVICE)
     model_reload.load_state_dict(state_dict_out)
@@ -150,7 +150,7 @@ def reload_clf(model, config, task_name, ds_name):
     ckpt_path_pattern = os.path.join(RELOAD_ROOT_DIRS[task_name], RELOAD_MODEL_DIRS[task_name][ds_name][mode],
                                      "checkpoints", "*.ckpt")
     ckpt_path = glob.glob(ckpt_path_pattern)[0]
-    lit_model.load_from_checkpoint(ckpt_path, model=model, ds_dict=ds_dict, params=params, config=config)
+    lit_model.load_from_checkpoint(ckpt_path, model=model, ds_dict=ds_dict, params=params, config=config, map_location=ptu.DEVICE)
     model_reload = lit_model.model.to(ptu.DEVICE)
     model_reload.eval()
 
@@ -170,7 +170,7 @@ def reload_seg(model, config, task_name, ds_name):
     ckpt_path_pattern = os.path.join(RELOAD_ROOT_DIRS[task_name], RELOAD_MODEL_DIRS[task_name][ds_name][mode],
                                      "checkpoints", "*.ckpt")
     ckpt_path = glob.glob(ckpt_path_pattern)[0]
-    lit_model.load_from_checkpoint(ckpt_path, model=model, ds_dict=ds_dict, params=params, config=config)
+    lit_model.load_from_checkpoint(ckpt_path, model=model, ds_dict=ds_dict, params=params, config=config, map_location=ptu.DEVICE)
     model_reload = lit_model.model.to(ptu.DEVICE)
     model_reload.eval()
 
