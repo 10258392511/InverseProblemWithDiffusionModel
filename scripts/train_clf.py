@@ -1,8 +1,8 @@
 import sys
 import os
 
-# path = "/scratch/zhexwu"
-path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+path = "/scratch/zhexwu"
+# path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if path not in sys.path:
     sys.path.append(path)
 

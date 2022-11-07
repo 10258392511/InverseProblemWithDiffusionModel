@@ -36,7 +36,7 @@ if __name__ == '__main__':
     config = load_config(ds_name, mode, device)
     ds = load_data(ds_name, "val")
     img, label = ds[args_dict["ds_idx"]]
-    img = img.unsqueeze(0),to(device)  # (1, C, H, W)
+    img = img.unsqueeze(0).to(device)  # (1, C, H, W)
     label = torch.tensor(label).view((1,)).to(device)  # (1,)
 
     scorenet = reload_model("Diffusion", ds_name, mode)
