@@ -55,8 +55,8 @@ RELOAD_MODEL_DIRS = {
             "complex": "2022_11_05_00_02_01_120409"
         },
         "ACDC": {
-            "real-valued": "2022_11_06_10_31_37_664067",
-            "complex": "2022_11_06_10_33_18_800623"
+            "real-valued": "2022_11_07_10_48_24_147215",
+            "complex": "2022_11_07_10_48_52_039130"
         }
     },
 
@@ -149,8 +149,6 @@ def reload_clf(model, config, task_name, ds_name):
     lit_model = TrainClf(model, ds_dict, params, config)
     ckpt_path_pattern = os.path.join(RELOAD_ROOT_DIRS[task_name], RELOAD_MODEL_DIRS[task_name][ds_name][mode],
                                      "checkpoints", "*.ckpt")
-    print(ckpt_path_pattern)
-    print("-" * 100)
     ckpt_path = glob.glob(ckpt_path_pattern)[0]
     lit_model.load_from_checkpoint(ckpt_path, model=model, ds_dict=ds_dict, params=params, config=config, map_location=ptu.DEVICE)
     model_reload = lit_model.model.to(ptu.DEVICE)

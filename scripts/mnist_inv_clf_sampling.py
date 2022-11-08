@@ -49,7 +49,7 @@ if __name__ == '__main__':
     }
     sigmas = get_sigmas(config)
     x_mod_shape = (
-        args_dict["num_samples"],
+        1,
         config.data.channels,
         config.data.image_size,
         config.data.image_size
@@ -67,7 +67,11 @@ if __name__ == '__main__':
         clf,
         device=device
     )
-    lamda_grid = np.linspace(0, 1, 10)
+    lamda_grid = np.linspace(0., 1., 10)
+    
+    vis_images(img[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_mnist.png", titles=[f"cls: {label[0].item()}"])
+    vis_images(linear_tfm.conj_op(measurement)[0], if_save=True, save_dir=args_dict["save_dir"], filename=f"downsampled_mnist_R_{args_dict['num_skip_lines']}.png", titles=[f"cls: {label[0].item()}"])
+
     for i, lamda_iter in enumerate(lamda_grid):
         print(f"current: {i + 1}/{len(lamda_grid)}, lambda = {lamda_iter}")
         img_out = ALD_sampler(cls=label, lamda=lamda_iter)[0]
@@ -77,7 +81,7 @@ if __name__ == '__main__':
             "lamda": lamda_iter
         }
         filename = create_filename(filename_dict, suffix=".png")
-        vis_images(img_out, if_save=True, save_dir=args_dict["save_dir"], filename=filename,
+        vis_images(img_out[0], if_save=True, save_dir=args_dict["save_dir"], filename=filename,
                    titles=[f"cls: {label[0].item()}"])
 
         del img_out

@@ -111,12 +111,14 @@ class ALDInvClf(ALDOptimizer):
         """
         cls = kwargs["cls"]
         lamda = kwargs["lamda"]
-        grad_norm = (grad ** 2).sum(dim=(1, 2, 3), keepdim=True)  # (B, 1, 1, 1)
+        grad_norm = torch.sqrt((grad ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        # grad_norm = torch.norm(grad)
         grad_log_lh_clf = compute_clf_grad(self.clf, x_mod, cls=kwargs["cls"])
         # (B, C, H, W)
-        grad_log_lh_measurement = self.linear_tfm.log_lh_grad(x_mod, self.measurement, lamda)
-        grad_log_lh_measurement_norm = (grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True)  # (B, 1, 1, 1)
-        grad_log_lh_measurement = grad_log_lh_measurement / grad_log_lh_measurement_norm * grad_norm
+        grad_log_lh_measurement = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
+        grad_log_lh_measurement_norm = torch.sqrt((grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        # grad_log_lh_measurement_norm = torch.norm(grad_log_lh_measurement)
+        grad_log_lh_measurement = grad_log_lh_measurement / (grad_log_lh_measurement_norm) * grad_norm
         grad += grad_log_lh_clf * lamda + grad_log_lh_measurement * (1 - lamda)
 
         return grad
