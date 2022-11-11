@@ -34,7 +34,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     hyper_params = dict()
     ds_names = ["ACDC"]
-    modes = ["real-valued", "complex"]
+    # modes = ["real-valued", "complex"]
+    modes = ["real-valued"]
 
     # set 1: ACDC
     for i, ds_name in enumerate(ds_names):

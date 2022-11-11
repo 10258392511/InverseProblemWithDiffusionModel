@@ -149,6 +149,11 @@ def get_optimizer(config, parameters):
         raise NotImplementedError('Optimizer {} not understood.'.format(config.optim.optimizer))
 
 
+def logit_transform(image, lam=1e-6):
+    image = lam + (1 - 2 * lam) * image
+    return torch.log(image) - torch.log1p(-image)
+
+
 def data_transform(config, X):
     if config.data.uniform_dequantization:
         X = X / 256. * 255. + torch.rand_like(X) / 256.

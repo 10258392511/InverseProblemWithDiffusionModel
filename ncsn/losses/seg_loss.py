@@ -9,7 +9,8 @@ def seg_loss_with_perturbation(model: nn.Module, X: torch.Tensor, y: torch.Tenso
     sigmas = sigmas.to(X.device)  # (L_noise,)
     B = X.shape[0]
     if labels is None:
-        labels = torch.randint(0, len(sigmas), (B,), device=X.device)
+        # labels = torch.randint(0, len(sigmas), (B,), device=X.device)
+        labels = torch.randint(0, len(sigmas)) * torch.ones(B, device=X.device)  # use the same label
     # (L_noise,) -> (B,) -> (B, 1, 1, 1)
     used_sigmas = sigmas[labels].view(B, *([1] * len(X.shape[1:])))
     noise = torch.randn_like(X) * used_sigmas  # (B, C, H, W)
@@ -27,6 +28,6 @@ def seg_loss_with_perturbation(model: nn.Module, X: torch.Tensor, y: torch.Tenso
         lambda_dice=0.5,
         batch=True
     )
-    loss = loss_fn(y_pred, y)
+    loss = loss_fn(y_pred, y) / used_sigmas[0]
 
     return loss, y_pred
