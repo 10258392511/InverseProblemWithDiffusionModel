@@ -14,7 +14,8 @@ from monai.transforms import (
     CropForegroundd,
     Resized,
     RandRotated,
-    RandAdjustContrastd
+    RandAdjustContrastd,
+    RandGaussianNoised
 )
 from monai.data import CacheDataset
 from monai.data import Dataset as m_Dataset
@@ -221,7 +222,8 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
     if mode == "train" and if_aug:
         transforms += [
             RandRotated(keys=keys, range_x=np.deg2rad(15), mode=("bilinear", "nearest"), prob=.5),
-            RandAdjustContrastd(keys=CommonKeys.IMAGE, prob=.5)
+            RandAdjustContrastd(keys=CommonKeys.IMAGE, prob=.5),
+            RandGaussianNoised(keys=CommonKeys.IMAGE, prob=0.1, mean=0.0, std=0.5)
         ]
 
     transforms += [
