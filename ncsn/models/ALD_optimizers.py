@@ -174,7 +174,7 @@ class ALDInvSeg(ALDOptimizer):
         # x_mod = torch.rand(*self.x_mod_shape).to(self.device)
         m_mod = self.init_x_mod()
         m_mod = data_transform(self.config, m_mod)
-        x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape) * 2 - 1) * torch.pi)
+        x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
 
         images = []
         print_interval = len(sigmas) // 10
@@ -200,7 +200,7 @@ class ALDInvSeg(ALDOptimizer):
 
                 grad = self.adjust_grad(grad_prior, m_mod, lamda=lh_seg_weight, **kwargs)
 
-                noise = torch.randn_like(x_mod)
+                noise = torch.randn_like(m_mod)
                 grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
                 noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
 
@@ -212,6 +212,7 @@ class ALDInvSeg(ALDOptimizer):
 
                 x_mod, m_mod = self.mag2complex(x_mod, m_mod, grad_prior, step_size)
                 print(f"grad_prior: {torch.norm(grad_prior)}")  ###
+                print(f"m_mod: {(m_mod.max(), m_mod.min())}")  ###
 
                 if not final_only:
                     images.append(x_mod.to('cpu'))
@@ -261,7 +262,8 @@ class ALDInvSeg(ALDOptimizer):
         (2). Inv log-lh step: update x_mod
         (3). Update m_mod
         """
-        x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
+        # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
+        x_mod = m_mod * torch.sgn(x_mod)
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
         grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))

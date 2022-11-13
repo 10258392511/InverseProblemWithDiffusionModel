@@ -72,7 +72,7 @@ if __name__ == '__main__':
                filename=f"acdc_zero_padded_recons_skip_lines_{args_dict['num_skip_lines']}.png")
 
     seg_start_time = np.linspace(0, 1, 2)
-    seg_start_time = [1.]
+    # seg_start_time = [0.]
     for i, seg_start_time_iter in enumerate(seg_start_time):
         filename_dict = {
             "ds_name": ds_name,
