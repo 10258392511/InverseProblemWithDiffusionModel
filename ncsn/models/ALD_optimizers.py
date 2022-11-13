@@ -172,8 +172,9 @@ class ALDInvSeg(ALDOptimizer):
 
         print("sampling...")
         # x_mod = torch.rand(*self.x_mod_shape).to(self.device)
-        x_mod = self.init_x_mod()
-        x_mod = data_transform(self.config, x_mod)
+        m_mod = self.init_x_mod()
+        m_mod = data_transform(self.config, m_mod)
+        x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape) * 2 - 1) * torch.pi)
 
         images = []
         print_interval = len(sigmas) // 10
@@ -191,7 +192,7 @@ class ALDInvSeg(ALDOptimizer):
             labels = labels.long()
             step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
 
-            m_mod = self.init_estimation(x_mod, **kwargs)
+            # m_mod = self.init_estimation(x_mod, **kwargs)
             lh_seg_weight = self.lh_weights[c]
 
             for s in range(n_steps_each):
@@ -231,7 +232,7 @@ class ALDInvSeg(ALDOptimizer):
         freeze_model(self.seg)
 
     def init_x_mod(self):
-        x_mod = torch.rand(*self.x_mod_shape, dtype=torch.complex64).to(self.device)
+        x_mod = torch.rand(*self.x_mod_shape).to(self.device)
         return x_mod
 
     def init_estimation(self, x_mod, **kwargs):
@@ -267,6 +268,6 @@ class ALDInvSeg(ALDOptimizer):
         grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
         print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
         x_mod += grad_log_lh_inv * step_size
-        m_mod = torch.abs(x_mod)
+        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
 
         return x_mod, m_mod
