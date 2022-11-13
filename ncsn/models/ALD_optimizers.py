@@ -24,6 +24,14 @@ def get_lh_weights(sigmas, start_time, curve_type="linear"):
         raise NotImplementedError
 
 
+def round_sign(X: torch.Tensor):
+    # angle(X): [-pi, pi]
+    X_angle = torch.angle(X)
+    sign_out = (torch.abs(X_angle) >= torch.pi / 2).float() * 2 - 1
+
+    return sign_out
+
+
 class ALDOptimizer(abc.ABC):
     def __init__(self, x_mod_shape, scorenet, sigmas, params, config,
                  measurement=None, linear_tfm=None, clf=None, seg=None, device=None):
@@ -263,6 +271,8 @@ class ALDInvSeg(ALDOptimizer):
         (3). Update m_mod
         """
         # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
+        x_mod_angle_in = round_sign(x_mod)
+
         x_mod = m_mod * torch.sgn(x_mod)
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
@@ -270,6 +280,9 @@ class ALDInvSeg(ALDOptimizer):
         grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
         print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
         x_mod += grad_log_lh_inv * step_size
-        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+
+        x_mod_angle_out = round_sign(x_mod)
+        sign_flip_mask = x_mod_angle_in * x_mod_angle_out
+        m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
 
         return x_mod, m_mod
