@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("--save_dir", default="../outputs")
     args_dict = vars(parser.parse_args())
 
-    ds_name = "MNIST"
+    ds_name = "ACDC"
     mode = "real-valued"
     device = ptu.DEVICE
 
@@ -59,17 +59,19 @@ if __name__ == '__main__':
         config.data.image_size
     )
     linear_tfm = UndersamplingFourier(args_dict["num_skip_lines"], x_mod_shape[1:])
-    measurement = linear_tfm(img)  # (1, 1, H, W)
+    measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
 
     vis_images(img[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc.png")
+    vis_images(label[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_seg.png")
     vis_images(torch.log(torch.abs(measurement[0])), if_save=True, save_dir=args_dict["save_dir"],
-               filename="acdc_measurement.png")
-    vis_images(linear_tfm.conj_op(measurement)[0], if_save=True, save_dir=args_dict["save_dir"],
-               filename="acdc_zero_padded_recons.png")
+               filename=f"acdc_measurement_skip_lines_{args_dict['num_skip_lines']}.png")
+    vis_images(torch.abs(linear_tfm.conj_op(measurement)[0]), if_save=True, save_dir=args_dict["save_dir"],
+               filename=f"acdc_zero_padded_recons_skip_lines_{args_dict['num_skip_lines']}.png")
 
     seg_start_time = np.linspace(0, 1, 2)
+    seg_start_time = [1.]
     for i, seg_start_time_iter in enumerate(seg_start_time):
-        print(f"current start time: {seg_start_time} ({i + 1}/{len(seg_start_time)})")
+        print(f"current start time: {seg_start_time_iter} ({i + 1}/{len(seg_start_time)})")
         ALD_sampler = ALDInvSeg(
             seg_start_time_iter,
             seg_step_type=args_dict["seg_step_type"],
@@ -91,7 +93,6 @@ if __name__ == '__main__':
             "seg_start_time": seg_start_time_iter
         }
         filename = create_filename(filename_dict, suffix=".png")
-        vis_images(img_out[0], if_save=True, save_dir=args_dict["save_dir"], filename=filename,
-                   titles=[f"cls: {label[0].item()}"])
+        vis_images(torch.abs(img_out[0]), if_save=True, save_dir=args_dict["save_dir"], filename=filename)
 
         del img_out

@@ -188,7 +188,7 @@ def compute_seg_grad(seg, X, label):
     y_pred_sel = torch.gather(y_pred, dim=1, index=label)  # (B, 1, H, W)
     # (B, 1, H, W) -> (B,) -> float
     # TODO: requiring re-scale the grad later, so for each image "mean" is used to avoid numerical instability
-    loss = torch.log(y_pred_sel).mean(dim=(1, 2, 3)).sum()
+    loss = torch.log(y_pred_sel).sum(dim=(1, 2, 3)).sum()
     loss.backward()
     grad_out = X.grad
 

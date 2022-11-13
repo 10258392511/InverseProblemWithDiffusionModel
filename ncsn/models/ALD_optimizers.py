@@ -184,7 +184,7 @@ class ALDInvSeg(ALDOptimizer):
             if c % print_interval == 0:
                 print(f"{c + 1}/{len(sigmas)}")
 
-                vis_images(torch.abs(x_mod), if_save=True, save_dir=kwargs.get("save_dir"),
+                vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
                            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
 
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
@@ -217,7 +217,8 @@ class ALDInvSeg(ALDOptimizer):
         if denoise:
             last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
             last_noise = last_noise.long()
-            x_mod = x_mod + sigmas[-1] ** 2 * scorenet(x_mod, last_noise)
+            m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
+            x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
             images.append(x_mod.to('cpu'))
 
         if final_only:
@@ -246,7 +247,7 @@ class ALDInvSeg(ALDOptimizer):
         grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label=label)
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         grad_log_lh_seg_norm = torch.sqrt((torch.abs(grad_log_lh_seg) ** 2).sum(dim=(1, 2, 3), keepdim=True))
-        grad_log_lh_seg = grad_log_lh_seg / grad_log_lh_seg_norm * grad_norm
+        # grad_log_lh_seg = grad_log_lh_seg / grad_log_lh_seg_norm * grad_norm
         grad += grad_log_lh_seg * lh_weight
 
         return grad
