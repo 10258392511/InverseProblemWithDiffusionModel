@@ -181,7 +181,6 @@ def compute_clf_grad(clf, X, cls):
 
 def compute_seg_grad(seg, X, label):
     # X: (B, C, H, W); label: (B, 1, H, W)
-    # TODO: test this
     torch.set_grad_enabled(True)
     X.requires_grad = True
     y_pred = seg(X)  # (B, num_cls, H, W)
