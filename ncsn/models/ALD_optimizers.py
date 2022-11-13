@@ -246,8 +246,8 @@ class ALDInvSeg(ALDOptimizer):
         label = kwargs["label"]
         lh_weight = kwargs["lamda"]
         grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label=label)
-        grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        grad_log_lh_seg_norm = torch.sqrt((torch.abs(grad_log_lh_seg) ** 2).sum(dim=(1, 2, 3), keepdim=True))
+        # grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        # grad_log_lh_seg_norm = torch.sqrt((torch.abs(grad_log_lh_seg) ** 2).sum(dim=(1, 2, 3), keepdim=True))
         # grad_log_lh_seg = grad_log_lh_seg / grad_log_lh_seg_norm * grad_norm
         print(f"grad_log_lh_seg: {torch.norm(grad_log_lh_seg)}")  ###
         grad += grad_log_lh_seg * lh_weight

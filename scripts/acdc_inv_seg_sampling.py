@@ -69,7 +69,7 @@ if __name__ == '__main__':
                filename=f"acdc_zero_padded_recons_skip_lines_{args_dict['num_skip_lines']}.png")
 
     seg_start_time = np.linspace(0, 1, 2)
-    seg_start_time = [1.]
+    seg_start_time = [0.5]
     for i, seg_start_time_iter in enumerate(seg_start_time):
         print(f"current start time: {seg_start_time_iter} ({i + 1}/{len(seg_start_time)})")
         ALD_sampler = ALDInvSeg(
@@ -85,7 +85,7 @@ if __name__ == '__main__':
             seg=seg,
             device=device
         )
-        img_out = ALD_sampler(label=label, save_dir=os.path.join(args_dict["save_dir"], "temp/"))
+        img_out = ALD_sampler(label=label, save_dir=os.path.join(args_dict["save_dir"], "temp/"))[0]
         filename_dict = {
             "ds_name": ds_name,
             "num_skip_lines": args_dict["num_skip_lines"],
