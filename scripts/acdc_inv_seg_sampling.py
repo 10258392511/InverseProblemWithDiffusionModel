@@ -24,6 +24,9 @@ if __name__ == '__main__':
     """
     python scripts/acdc_inv_seg_sampling.py
     """
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_skip_lines", type=int, default=2)
     parser.add_argument("--seg_step_type", default="linear")
@@ -69,8 +72,19 @@ if __name__ == '__main__':
                filename=f"acdc_zero_padded_recons_skip_lines_{args_dict['num_skip_lines']}.png")
 
     seg_start_time = np.linspace(0, 1, 2)
-    seg_start_time = [0.5]
+    # seg_start_time = [0.5]
     for i, seg_start_time_iter in enumerate(seg_start_time):
+        filename_dict = {
+            "ds_name": ds_name,
+            "num_skip_lines": args_dict["num_skip_lines"],
+            "seg_step_type": args_dict["seg_step_type"],
+            "seg_start_time": seg_start_time_iter
+        }
+        log_filename = create_filename(filename_dict, suffix=".txt")
+        log_file = open(os.path.join(args_dict["save_dir"], log_filename), "w")
+        sys.stdout = log_file
+        sys.stderr = log_file
+
         print(f"current start time: {seg_start_time_iter} ({i + 1}/{len(seg_start_time)})")
         ALD_sampler = ALDInvSeg(
             seg_start_time_iter,
@@ -86,13 +100,12 @@ if __name__ == '__main__':
             device=device
         )
         img_out = ALD_sampler(label=label, save_dir=os.path.join(args_dict["save_dir"], "temp/"))[0]
-        filename_dict = {
-            "ds_name": ds_name,
-            "num_skip_lines": args_dict["num_skip_lines"],
-            "seg_step_type": args_dict["seg_step_type"],
-            "seg_start_time": seg_start_time_iter
-        }
+
         filename = create_filename(filename_dict, suffix=".png")
         vis_images(torch.abs(img_out[0]), if_save=True, save_dir=args_dict["save_dir"], filename=filename)
 
         del img_out
+        log_file.close()
+
+    sys.stdout = original_stdout
+    sys.stderr = original_stderr
