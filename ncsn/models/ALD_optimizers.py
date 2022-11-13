@@ -209,7 +209,8 @@ class ALDInvSeg(ALDOptimizer):
                 snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
                 grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
 
-                x_mod, m_mod = self.mag2complex(x_mod, m_mod, grad_prior)
+                x_mod, m_mod = self.mag2complex(x_mod, m_mod, grad_prior, step_size)
+                print(f"grad_prior: {torch.norm(grad_prior)}")  ###
 
                 if not final_only:
                     images.append(x_mod.to('cpu'))
@@ -248,11 +249,12 @@ class ALDInvSeg(ALDOptimizer):
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         grad_log_lh_seg_norm = torch.sqrt((torch.abs(grad_log_lh_seg) ** 2).sum(dim=(1, 2, 3), keepdim=True))
         # grad_log_lh_seg = grad_log_lh_seg / grad_log_lh_seg_norm * grad_norm
+        print(f"grad_log_lh_seg: {torch.norm(grad_log_lh_seg)}")  ###
         grad += grad_log_lh_seg * lh_weight
 
         return grad
 
-    def mag2complex(self, x_mod, m_mod, grad):
+    def mag2complex(self, x_mod, m_mod, grad, step_size):
         """
         (1). x_mod <- m_mod * angle(x_mod)
         (2). Inv log-lh step: update x_mod
@@ -263,7 +265,8 @@ class ALDInvSeg(ALDOptimizer):
         grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
         grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
         grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
-        x_mod += grad_log_lh_inv
+        print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
+        x_mod += grad_log_lh_inv * step_size
         m_mod = torch.abs(x_mod)
 
         return x_mod, m_mod
