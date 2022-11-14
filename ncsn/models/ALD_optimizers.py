@@ -285,6 +285,7 @@ class ALDInvSeg(ALDOptimizer):
 
         x_mod_angle_out = round_sign(x_mod)
         sign_flip_mask = x_mod_angle_in * x_mod_angle_out
-        m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
-
+        # m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
+        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+        
         return x_mod, m_mod
