@@ -273,7 +273,7 @@ class ALDInvSeg(ALDOptimizer):
         # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
         x_mod_angle_in = round_sign(x_mod)
 
-        x_mod = m_mod * torch.sgn(x_mod)
+        x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
         grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
