@@ -165,6 +165,7 @@ class ALDInvSeg(ALDOptimizer):
         self.seg_start_time = seg_start_time
         self.seg_step_type = seg_step_type
         self.lh_weights = get_lh_weights(self.sigmas, self.seg_start_time, self.seg_step_type)
+        self.last_m_mod_sign = None
 
     def __call__(self, **kwargs):
         """
@@ -274,8 +275,17 @@ class ALDInvSeg(ALDOptimizer):
         """
         # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
         x_mod_angle_in = round_sign(x_mod)
+        if self.last_m_mod_sign is None:
+            m_sign_flip_mask = torch.ones(m_mod).to(m_mod.device)
+            self.last_m_mod_sign = torch.sign(m_mod)
+        else:
+            m_mod_sign = torch.sign(m_mod)
+            m_sign_flip_mask = m_mod_sign * self.last_m_mod_sign
+            self.last_m_mod_sign = m_mod
 
-        x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
+        # pass sign flip from m_mod to x_mod
+        x_mod = m_mod * torch.sgn(x_mod * m_sign_flip_mask)
+
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
         grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
@@ -285,7 +295,8 @@ class ALDInvSeg(ALDOptimizer):
 
         x_mod_angle_out = round_sign(x_mod)
         sign_flip_mask = x_mod_angle_in * x_mod_angle_out
-        # m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
-        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+
+        # pass sign flip from x_mod to m_mod
+        m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
         
         return x_mod, m_mod
