@@ -193,7 +193,9 @@ class ALDInvSeg(ALDOptimizer):
             if c % print_interval == 0:
                 print(f"{c + 1}/{len(sigmas)}")
 
-                vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
+                # vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
+                #            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
+                vis_images(m_mod[0], if_save=True, save_dir=kwargs.get("save_dir"),
                            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
 
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
@@ -223,17 +225,17 @@ class ALDInvSeg(ALDOptimizer):
                 print(f"m_mod: {(m_mod.max(), m_mod.min())}")  ###
 
                 if not final_only:
-                    images.append(x_mod.to('cpu'))
+                    images.append(m_mod.to('cpu'))
 
         if denoise:
             last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
             last_noise = last_noise.long()
             m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
-            x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
-            images.append(x_mod.to('cpu'))
+            # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
+            images.append(m_mod.to('cpu'))
 
         if final_only:
-            return [x_mod.to('cpu')]
+            return [m_mod.to('cpu')]
         else:
             return images
 
