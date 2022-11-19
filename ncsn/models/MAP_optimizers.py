@@ -46,6 +46,8 @@ class MAPOptimizer(object):
                 # x: (1, 1, H, W)
                 self.logger.add_image("recons_img", x.detach().cpu()[0], global_step=iter, dataformats="CHW")
 
+        return x
+
     def _step(self, x, iter):
         grad_data = self.linear_tfm.log_lh_grad(x, self.measurement, 1.)  # (1, C, H, W)
         grad_prior = self.scorenet(x, self.sigma) * self.sigma_val  # (1, C, H, W)

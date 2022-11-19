@@ -15,24 +15,26 @@ from torch.utils.tensorboard import SummaryWriter
 from InverseProblemWithDiffusionModel.helpers.load_data import load_data, load_config
 from InverseProblemWithDiffusionModel.helpers.load_model import reload_model
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
-from InverseProblemWithDiffusionModel.ncsn.linear_transforms.masking import SkipLines
-from InverseProblemWithDiffusionModel.ncsn.models.MAP_optimizers import Inpainting
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import RandomUndersamplingFourier
+from InverseProblemWithDiffusionModel.ncsn.models.MAP_optimizers import UndersamplingFourier as UFMAP
 from InverseProblemWithDiffusionModel.helpers.utils import vis_images, create_filename
 from datetime import datetime
-
+from monai.utils import CommonKeys
 
 if __name__ == '__main__':
     """
-    python scripts/mnist_MAP.py
+    python scripts/acdc_MAP_keep_center.py
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num_skip_lines", type=int, default=2)
+    parser.add_argument("--R", type=int, default=6)
+    parser.add_argument("--center_lines_frac", type=float, default=1 / 4)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
     parser.add_argument("--lamda", type=float, default=1e-2)
     args_dict = vars(parser.parse_args())
 
-    ds_name = "MNIST"
+    ds_name = "ACDC"
     mode = "real-valued"
     device = ptu.DEVICE
 
@@ -40,14 +42,14 @@ if __name__ == '__main__':
     ds = load_data(ds_name, "val")
     data = ds[args_dict["ds_idx"]]
     # (1, H, W), (1, H, W)
-    img, label = ds[args_dict["ds_idx"]]
-    img = img.unsqueeze(0).to(device)  # (1, C, H, W)
-    label = torch.tensor(label).view((1,)).to(device)  # (1,)
+    img, label = data[CommonKeys.IMAGE], data[CommonKeys.LABEL]
+    img = img.unsqueeze(0).to(device)  # (1, 1, H, W)
+    label = label.unsqueeze(0).to(device)
 
     scorenet = reload_model("Diffusion", ds_name, mode)
 
     timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
-    log_dir = os.path.join(args_dict["save_dir"], "MNIST_MAP", timestamp)
+    log_dir = os.path.join(args_dict["save_dir"], "ACDC_MAP_keep_center", timestamp)
     logger = SummaryWriter(log_dir=log_dir)
 
     desc_dict = args_dict.copy()
@@ -63,14 +65,15 @@ if __name__ == '__main__':
         config.data.image_size
     )
     x_init = torch.rand(*x_mod_shape).to(device)
-    linear_tfm = SkipLines(args_dict["num_skip_lines"], x_mod_shape[1:])
-    measurement = linear_tfm(img)  # (1, 1, H, W)
+    linear_tfm = UndersamplingFourier(args_dict["R"], args_dict["center_lines_frac"], x_mod_shape[1:],
+                                      args_dict["seed"])
+    measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
 
     # save image and measurement
     vis_images(img[0], if_save=True, save_dir=log_dir, filename="original.png")
     vis_images(torch.abs(measurement[0]), if_save=True, save_dir=log_dir, filename="measurement.png")
 
-    MAP_optimizer = Inpainting(
+    MAP_optimizer = UFMAP(
         x_init=x_init,
         measurement=measurement,
         scorenet=scorenet,
@@ -82,4 +85,3 @@ if __name__ == '__main__':
     )
     img_out = MAP_optimizer()
     vis_images(img_out[0], if_save=True, save_dir=log_dir, filename="reconstruction.png")
-

@@ -17,6 +17,7 @@ from InverseProblemWithDiffusionModel.helpers.load_model import reload_model
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import UndersamplingFourier
 from InverseProblemWithDiffusionModel.ncsn.models.MAP_optimizers import UndersamplingFourier as UFMAP
+from InverseProblemWithDiffusionModel.helpers.utils import vis_images, create_filename
 from datetime import datetime
 from monai.utils import CommonKeys
 
@@ -50,6 +51,12 @@ if __name__ == '__main__':
     log_dir = os.path.join(args_dict["save_dir"], "ACDC_MAP", timestamp)
     logger = SummaryWriter(log_dir=log_dir)
 
+    desc_dict = args_dict.copy()
+    desc_dict.update(vars(config.MAP))
+    with open(os.path.join(log_dir, "desc.txt"), "w") as wf:
+        for key, val in desc_dict.items():
+            wf.write(f"{key}: {val}\n")
+
     x_mod_shape = (
         1,
         config.data.channels,
@@ -59,6 +66,13 @@ if __name__ == '__main__':
     x_init = torch.rand(*x_mod_shape).to(device)
     linear_tfm = UndersamplingFourier(args_dict["num_skip_lines"], x_mod_shape[1:])
     measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
+
+    # save image and measurement
+    vis_images(img[0], if_save=True, save_dir=log_dir, filename="original.png")
+    vis_images(torch.abs(measurement[0]), if_save=True, save_dir=log_dir, filename="measurement.png")
+    vis_images(torch.abs(linear_tfm.conj_op(measurement))[0], if_save=True, save_dir=log_dir,
+               filename="zero_filled_recons.png")
+
     MAP_optimizer = UFMAP(
         x_init=x_init,
         measurement=measurement,
@@ -69,4 +83,5 @@ if __name__ == '__main__':
         logger=logger,
         device=device
     )
-    MAP_optimizer()
+    img_out = MAP_optimizer()
+    vis_images(img_out[0], if_save=True, save_dir=log_dir, filename="reconstruction.png")
