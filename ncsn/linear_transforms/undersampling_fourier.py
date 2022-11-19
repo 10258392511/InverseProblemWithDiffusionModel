@@ -46,15 +46,15 @@ class RandomUndersamplingFourier(LinearTransform):
         self.mask = self._generate_mask()
 
     def _generate_mask(self):
-        # mask: (C, H, W)
+        # mask: (1, 1, W)
         torch.random.manual_seed(self.seed)
         C, H, W = self.in_shape
-        mask = (torch.rand(self.in_shape) <= 1 / self.R).float()
-        win_size = int(H * self.center_lines_frac)
-        half_win_size = H // 2
+        mask = (torch.rand(1, 1, W) <= 1 / self.R).float()
+        win_size = int(W * self.center_lines_frac)
+        half_win_size = W // 2
         start_idx = half_win_size - win_size // 2
         end_idx = start_idx + win_size
-        mask[:, start_idx:end_idx, :] = 1.
+        mask[..., start_idx:end_idx] = 1.
 
         return mask
 
