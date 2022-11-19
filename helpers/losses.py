@@ -16,7 +16,8 @@ def get_loss_fn(sde: SDE, eps=1e-5):
         X_perturbed = mean + Z * std  # (B, C, H, W)
         score = model(X_perturbed, T)  # (B, C, H, W)
         # (B, C, H, W) -> (B,) -> (1,)
-        loss = ((score * std + Z) ** 2).mean(dim=[1, 2, 3]).mean()
+        # loss = ((score * std + Z) ** 2).mean(dim=[1, 2, 3]).mean()
+        loss = ((score + Z / std) ** 2).mean(dim=[1, 2, 3]).mean()
 
         return loss
 

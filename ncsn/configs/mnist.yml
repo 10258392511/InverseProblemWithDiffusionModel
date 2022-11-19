@@ -67,3 +67,7 @@ optim:
   beta1: 0.9
   amsgrad: false
   eps: 0.00000001
+
+MAP:
+  n_iters: 1000
+  lr: 0.001
