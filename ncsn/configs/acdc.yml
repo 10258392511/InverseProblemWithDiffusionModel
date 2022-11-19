@@ -70,6 +70,6 @@ optim:
   eps: 0.001
 
 MAP:
-  n_iters: 1000
-  complex_inner_n_steps: 5
+  n_iters: 15000
+  complex_inner_n_steps: 20
   lr: 0.001

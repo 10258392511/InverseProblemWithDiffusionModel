@@ -18,6 +18,7 @@ from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import UndersamplingFourier
 from InverseProblemWithDiffusionModel.ncsn.models.MAP_optimizers import UndersamplingFourier as UFMAP
 from datetime import datetime
+from monai.utils import CommonKeys
 
 
 if __name__ == '__main__':
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         measurement=measurement,
         scorenet=scorenet,
         linear_tfm=linear_tfm,
-        lamda=args_dict["lambda"],
+        lamda=args_dict["lamda"],
         config=config,
         logger=logger,
         device=device

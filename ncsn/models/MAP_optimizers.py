@@ -27,9 +27,11 @@ class MAPOptimizer(object):
         self.device = ptu.DEVICE if device is None else device
         self.logger = logger
         self.plot_interval = self.config.MAP.n_iters // 50
-        self.sigma = self.scorenet.sigmas[-1]
+        self.sigma_val = self.scorenet.sigmas[-1]
+        self.sigma = -1
         self.lr = self.config.MAP.lr
-
+    
+    @torch.no_grad()
     def __call__(self):
         n_iters = self.config.MAP.n_iters
         pbar = trange(n_iters, desc="optimizing")
@@ -46,7 +48,8 @@ class MAPOptimizer(object):
 
     def _step(self, x, iter):
         grad_data = self.linear_tfm.log_lh_grad(x, self.measurement, 1.)  # (1, C, H, W)
-        grad_prior = self.scorenet(x, self.sigma)  # (1, C, H, W)
+        grad_prior = self.scorenet(x, self.sigma) * self.sigma_val  # (1, C, H, W)
+        # grad_prior = self.scorenet(x, self.sigma)  # (1, C, H, W)
         grad = grad_data + self.lamda * grad_prior
         x += grad * self.lr  # maximizing log posterior
 
@@ -69,13 +72,15 @@ class UndersamplingFourier(MAPOptimizer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.x_complex = self.linear_tfm.conj_op(self.measurement)
-        self.x_init = torch.abs(self.x_complex)
+        self.x_complex = torch.abs(self.x_init) * torch.sgn(self.x_complex)
+        # self.x_init = torch.abs(self.x_complex)
+        # self.x_complex = self.x_init * torch.exp(1j * (torch.rand_like(self.x_init).to(self.x_init.device) * 2 - 1) * torch.pi)
 
     def _step(self, x, iter):
-        grad_prior = self.scorenet(x, self.sigma)
+        grad_prior = self.scorenet(x, self.sigma) * self.sigma_val
         x += self.lamda * grad_prior * self.lr
-        self.x_complex = torch.maximum(x, 0) * torch.sgn(self.x_complex)  # (1, C, H, W)
-        for _ in range(self.MAP.complex_inner_n_steps):
+        self.x_complex = torch.maximum(x, torch.tensor(0).to(x.device)) * torch.sgn(self.x_complex)  # (1, C, H, W)
+        for _ in range(self.config.MAP.complex_inner_n_steps):
             grad_data = self.linear_tfm.log_lh_grad(self.x_complex, self.measurement, 1.)
             self.x_complex += grad_data * self.lr
         x = torch.abs(self.x_complex)
