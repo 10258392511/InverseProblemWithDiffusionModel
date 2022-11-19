@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_skip_lines", type=int, default=2)
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
+    parser.add_argument("--lamda", type=float, default=1e-2)
     args_dict = vars(parser.parse_args())
 
     ds_name = "MNIST"
@@ -62,6 +63,7 @@ if __name__ == '__main__':
         measurement=measurement,
         scorenet=scorenet,
         linear_tfm=linear_tfm,
+        lamda=args_dict["lambda"],
         config=config,
         logger=logger,
         device=device
