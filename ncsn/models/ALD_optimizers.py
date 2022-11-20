@@ -315,7 +315,7 @@ class ALDInvSeg(ALDOptimizer):
         # return x_mod, m_mod
 
         m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
-        # x_mod = m_mod * torch.sgn(x_mod)
+        x_mod = m_mod * torch.sgn(x_mod)
         
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         # # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
@@ -328,7 +328,7 @@ class ALDInvSeg(ALDOptimizer):
             grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
             grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
             grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
-            
+     
             print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
             
             noise = torch.randn_like(x_mod)

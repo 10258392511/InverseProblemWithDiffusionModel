@@ -70,16 +70,17 @@ if __name__ == '__main__':
     vis_images(img[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc.png")
     vis_images(label[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_seg.png")
     vis_images(torch.log(torch.abs(measurement[0])), if_save=True, save_dir=args_dict["save_dir"],
-               filename=f"acdc_measurement_skip_lines_{args_dict['num_skip_lines']}.png")
+               filename=f"acdc_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
     vis_images(torch.abs(linear_tfm.conj_op(measurement)[0]), if_save=True, save_dir=args_dict["save_dir"],
-               filename=f"acdc_zero_padded_recons_skip_lines_{args_dict['num_skip_lines']}.png")
+               filename=f"acdc_zero_padded_recons_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
 
     seg_start_time = np.linspace(0, 1, 2)
     # seg_start_time = [0.]
     for i, seg_start_time_iter in enumerate(seg_start_time):
         filename_dict = {
             "ds_name": ds_name,
-            "num_skip_lines": args_dict["num_skip_lines"],
+            "R": args_dict["R"],
+            "center_lines_frac": args_dict["center_lines_frac"],
             "seg_step_type": args_dict["seg_step_type"],
             "seg_start_time": seg_start_time_iter
         }
