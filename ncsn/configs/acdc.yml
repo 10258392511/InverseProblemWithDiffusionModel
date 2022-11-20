@@ -22,6 +22,7 @@ sampling:
   inpainting: false
   interpolation: false
   n_interpolations: 8
+  complex_inner_n_steps: 10
 
 fast_fid:
   batch_size: 1000

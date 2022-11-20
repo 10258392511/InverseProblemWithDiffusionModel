@@ -86,12 +86,14 @@ class ALDOptimizer(abc.ABC):
             for s in range(n_steps_each):
                 grad = scorenet(x_mod, labels)  # (B, C, H, W)
 
-                grad = self.adjust_grad(grad, x_mod, **kwargs)
+                grad = self.adjust_grad(grad, x_mod, sigma=sigma, **kwargs)
 
                 noise = torch.randn_like(x_mod)
                 grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
                 noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
                 x_mod = x_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
+
+                print(f"x_mod: {(x_mod.max(), x_mod.min())}")
 
                 image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
                 snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
@@ -143,15 +145,16 @@ class ALDInvClf(ALDOptimizer):
         """
         cls = kwargs["cls"]
         lamda = kwargs["lamda"]
+        sigma = kwargs["sigma"]
         grad_norm = torch.sqrt((grad ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         # grad_norm = torch.norm(grad)
         grad_log_lh_clf = compute_clf_grad(self.clf, x_mod, cls=kwargs["cls"])
         # (B, C, H, W)
         grad_log_lh_measurement = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
-        grad_log_lh_measurement_norm = torch.sqrt((grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        # grad_log_lh_measurement_norm = torch.sqrt((grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         # grad_log_lh_measurement_norm = torch.norm(grad_log_lh_measurement)
-        grad_log_lh_measurement = grad_log_lh_measurement / (grad_log_lh_measurement_norm) * grad_norm
-        grad += grad_log_lh_clf * lamda + grad_log_lh_measurement * (1 - lamda)
+        # grad_log_lh_measurement = grad_log_lh_measurement / (grad_log_lh_measurement_norm) * grad_norm
+        grad += (grad_log_lh_clf * lamda + grad_log_lh_measurement * (1 - lamda)) / sigma
 
         return grad
 
@@ -209,7 +212,7 @@ class ALDInvSeg(ALDOptimizer):
             for s in range(n_steps_each):
                 grad_prior = scorenet(m_mod, labels)  # (B, C, H, W)
 
-                grad = self.adjust_grad(grad_prior, m_mod, lamda=lh_seg_weight, **kwargs)
+                grad = self.adjust_grad(grad_prior, m_mod, sigma=sigma, lamda=lh_seg_weight, **kwargs)
 
                 noise = torch.randn_like(m_mod)
                 grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
@@ -221,7 +224,7 @@ class ALDInvSeg(ALDOptimizer):
                 snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
                 grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
 
-                x_mod, m_mod = self.mag2complex(x_mod, m_mod, grad_prior, step_size)
+                x_mod, m_mod = self.mag2complex(x_mod, m_mod, grad_prior, sigma, step_size)
                 print(f"grad_prior: {torch.norm(grad_prior)}")  ###
                 print(f"m_mod: {(m_mod.max(), m_mod.min())}")  ###
 
@@ -258,49 +261,64 @@ class ALDInvSeg(ALDOptimizer):
         """
         label = kwargs["label"]
         lh_weight = kwargs["lamda"]
+        sigma = kwargs["sigma"]
         grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label=label)
         # grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
         # grad_log_lh_seg_norm = torch.sqrt((torch.abs(grad_log_lh_seg) ** 2).sum(dim=(1, 2, 3), keepdim=True))
         # grad_log_lh_seg = grad_log_lh_seg / grad_log_lh_seg_norm * grad_norm
         print(f"grad_log_lh_seg: {torch.norm(grad_log_lh_seg)}")  ###
-        grad += grad_log_lh_seg * lh_weight
+        grad += grad_log_lh_seg * lh_weight / sigma
 
         return grad
 
-    def mag2complex(self, x_mod, m_mod, grad, step_size):
+    def mag2complex(self, x_mod, m_mod, grad, sigma, step_size):
         """
         (1). x_mod <- m_mod * angle(x_mod)
         (2). Inv log-lh step: update x_mod
         (3). Update m_mod
         """
-        # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
-        x_mod_angle_in = round_sign(x_mod)
-        if self.last_m_mod_sign is None:
-            # m_sign_flip_mask = torch.ones(m_mod.shape).to(m_mod.device)
-            self.last_m_mod_sign = torch.ones(m_mod.shape).to(m_mod.device)
-        # else:
-        #     m_mod_sign = torch.sign(m_mod)
-        #     # m_sign_flip_mask = m_mod_sign * self.last_m_mod_sign
-        #     self.last_m_mod_sign = m_mod_sign
+        # # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
+        # x_mod_angle_in = round_sign(x_mod)
+        # if self.last_m_mod_sign is None:
+        #     # m_sign_flip_mask = torch.ones(m_mod.shape).to(m_mod.device)
+        #     self.last_m_mod_sign = torch.ones(m_mod.shape).to(m_mod.device)
+        # # else:
+        # #     m_mod_sign = torch.sign(m_mod)
+        # #     # m_sign_flip_mask = m_mod_sign * self.last_m_mod_sign
+        # #     self.last_m_mod_sign = m_mod_sign
+        #
+        # # pass sign flip from m_mod to x_mod
+        # # x_mod = m_mod * self.last_m_mod_sign * torch.sgn(x_mod)
+        # self.last_m_mod_sign = torch.sign(m_mod)
+        #
+        # x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
+        #
+        # grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
+        # grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
+        # grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
+        # print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
+        # x_mod += grad_log_lh_inv * step_size
+        #
+        # x_mod_angle_out = round_sign(x_mod)
+        # sign_flip_mask = x_mod_angle_in * x_mod_angle_out
+        #
+        # # pass sign flip from x_mod to m_mod
+        # # m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
+        # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+        #
+        # return x_mod, m_mod
 
-        # pass sign flip from m_mod to x_mod
-        # x_mod = m_mod * self.last_m_mod_sign * torch.sgn(x_mod)
-        self.last_m_mod_sign = torch.sign(m_mod)
-        
-        x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
+        m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
+        x_mod = m_mod * torch.sgn(x_mod)
 
-        grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
-        grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
-        grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
+        grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
         print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
-        x_mod += grad_log_lh_inv * step_size
 
-        x_mod_angle_out = round_sign(x_mod)
-        sign_flip_mask = x_mod_angle_in * x_mod_angle_out
+        for _ in range(self.config.sampling.complex_inner_n_steps):
+            noise = torch.randn_like(x_mod)
+            x_mod = x_mod + step_size * grad_log_lh_inv + noise * torch.sqrt(step_size * 2)
 
-        # pass sign flip from x_mod to m_mod
-        # m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
-        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
-        
+        m_mod = torch.abs(x_mod)
+
         return x_mod, m_mod

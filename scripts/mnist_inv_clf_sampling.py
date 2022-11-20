@@ -67,7 +67,7 @@ if __name__ == '__main__':
         clf,
         device=device
     )
-    lamda_grid = np.linspace(0., 1., 10)
+    lamda_grid = np.linspace(0., 1., 5)
     
     vis_images(img[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_mnist.png", titles=[f"cls: {label[0].item()}"])
     vis_images(linear_tfm.conj_op(measurement)[0], if_save=True, save_dir=args_dict["save_dir"], filename=f"downsampled_mnist_R_{args_dict['num_skip_lines']}.png", titles=[f"cls: {label[0].item()}"])
