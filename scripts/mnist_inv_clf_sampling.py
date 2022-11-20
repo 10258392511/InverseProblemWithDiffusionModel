@@ -23,11 +23,17 @@ if __name__ == '__main__':
     """
     python scripts/mnist_inv_clf_sampling.py
     """
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_skip_lines", type=int, default=2)
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
     args_dict = vars(parser.parse_args())
+
+    if not os.path. isdir(args_dict["save_dir"]):
+        os.makedirs(args_dict["save_dir"])
 
     ds_name = "MNIST"
     mode = "real-valued"
@@ -67,12 +73,19 @@ if __name__ == '__main__':
         clf,
         device=device
     )
-    lamda_grid = np.linspace(0., 1., 5)
+    lamda_grid = np.linspace(0., 1., 3)
     
     vis_images(img[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_mnist.png", titles=[f"cls: {label[0].item()}"])
     vis_images(linear_tfm.conj_op(measurement)[0], if_save=True, save_dir=args_dict["save_dir"], filename=f"downsampled_mnist_R_{args_dict['num_skip_lines']}.png", titles=[f"cls: {label[0].item()}"])
 
     for i, lamda_iter in enumerate(lamda_grid):
+        filename_dict = {
+            "ds_name": ds_name,
+            "num_skip_lines": args_dict["num_skip_lines"]
+        }
+        log_filename = create_filename(filename_dict, suffix=".txt")
+        log_file = open(os.path.join(args_dict["save_dir"], log_filename), "w")
+
         print(f"current: {i + 1}/{len(lamda_grid)}, lambda = {lamda_iter}")
         img_out = ALD_sampler(cls=label, lamda=lamda_iter)[0]
         filename_dict = {
@@ -85,3 +98,7 @@ if __name__ == '__main__':
                    titles=[f"cls: {label[0].item()}"])
 
         del img_out
+        log_file.close()
+
+    sys.stdout = original_stdout
+    sys.stderr = original_stderr
