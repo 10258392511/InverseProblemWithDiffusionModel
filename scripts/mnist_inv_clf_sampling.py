@@ -81,10 +81,13 @@ if __name__ == '__main__':
     for i, lamda_iter in enumerate(lamda_grid):
         filename_dict = {
             "ds_name": ds_name,
-            "num_skip_lines": args_dict["num_skip_lines"]
+            "num_skip_lines": args_dict["num_skip_lines"],
+            "lamda": lamda_iter
         }
         log_filename = create_filename(filename_dict, suffix=".txt")
         log_file = open(os.path.join(args_dict["save_dir"], log_filename), "w")
+        sys.stdout = log_file
+        sys.stderr = log_file
 
         print(f"current: {i + 1}/{len(lamda_grid)}, lambda = {lamda_iter}")
         img_out = ALD_sampler(cls=label, lamda=lamda_iter)[0]

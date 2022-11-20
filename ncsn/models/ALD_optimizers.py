@@ -155,7 +155,9 @@ class ALDInvClf(ALDOptimizer):
         grad_log_lh_measurement_norm = torch.norm(grad_log_lh_measurement)
         grad_log_lh_measurement = grad_log_lh_measurement / (grad_log_lh_measurement_norm) * grad_norm
         print(f"grad: {torch.norm(grad_norm)}, grad_log_lh_clf: {torch.norm(grad_log_lh_clf)}, grad_log_lh_measurement: {torch.norm(grad_log_lh_measurement)}l")
+        # grad += (grad_log_lh_clf / sigma * lamda + grad_log_lh_measurement * (1 - lamda) / sigma)   
         grad += (grad_log_lh_clf / sigma * lamda + grad_log_lh_measurement * (1 - lamda))
+        # grad += (grad_log_lh_clf * lamda + grad_log_lh_measurement * (1 - lamda) / sigma)   
 
         return grad
 
@@ -312,22 +314,28 @@ class ALDInvSeg(ALDOptimizer):
         #
         # return x_mod, m_mod
 
-        # m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
-        x_mod = m_mod * torch.sgn(x_mod)
+        m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
+        # x_mod = m_mod * torch.sgn(x_mod)
         
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
-        grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
-        grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
-        grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
-
-        print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
+        # # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
+        # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
+        # grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
+        # grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
 
         for _ in range(self.config.sampling.complex_inner_n_steps):
+            # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
+            grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
+            grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
+            grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
+            
+            print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
+            
             noise = torch.randn_like(x_mod)
             x_mod = x_mod + step_size * grad_log_lh_inv + noise * torch.sqrt(step_size * 2)
             # x_mod = x_mod + step_size * grad_log_lh_inv
 
-        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+        # m_mod = torch.abs(x_mod) * torch.sign(m_mod) 
+        m_mod = torch.abs(x_mod)
 
         return x_mod, m_mod
