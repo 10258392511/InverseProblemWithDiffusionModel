@@ -151,10 +151,11 @@ class ALDInvClf(ALDOptimizer):
         grad_log_lh_clf = compute_clf_grad(self.clf, x_mod, cls=kwargs["cls"])
         # (B, C, H, W)
         grad_log_lh_measurement = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
-        # grad_log_lh_measurement_norm = torch.sqrt((grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        # grad_log_lh_measurement_norm = torch.norm(grad_log_lh_measurement)
-        # grad_log_lh_measurement = grad_log_lh_measurement / (grad_log_lh_measurement_norm) * grad_norm
-        grad += (grad_log_lh_clf * lamda + grad_log_lh_measurement * (1 - lamda)) / sigma
+        grad_log_lh_measurement_norm = torch.sqrt((grad_log_lh_measurement ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        grad_log_lh_measurement_norm = torch.norm(grad_log_lh_measurement)
+        grad_log_lh_measurement = grad_log_lh_measurement / (grad_log_lh_measurement_norm) * grad_norm
+        print(f"grad: {torch.norm(grad_norm)}, grad_log_lh_clf: {torch.norm(grad_log_lh_clf)}, grad_log_lh_measurement: {torch.norm(grad_log_lh_measurement)}l")
+        grad += (grad_log_lh_clf / sigma * lamda + grad_log_lh_measurement * (1 - lamda))
 
         return grad
 
@@ -186,7 +187,9 @@ class ALDInvSeg(ALDOptimizer):
         # x_mod = torch.rand(*self.x_mod_shape).to(self.device)
         m_mod = self.init_x_mod()
         m_mod = data_transform(self.config, m_mod)
-        x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
+        x_mod = self.linear_tfm.conj_op(self.measurement)  # (B, C, H, W)
+        # x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
+        x_mod = m_mod * torch.sgn(x_mod)
 
         images = []
         print_interval = len(sigmas) // 10
@@ -309,16 +312,22 @@ class ALDInvSeg(ALDOptimizer):
         #
         # return x_mod, m_mod
 
-        m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
+        # m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
         x_mod = m_mod * torch.sgn(x_mod)
+        
+        grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
+        # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
+        grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
+        grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
+        grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
 
-        grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
         print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
 
         for _ in range(self.config.sampling.complex_inner_n_steps):
             noise = torch.randn_like(x_mod)
             x_mod = x_mod + step_size * grad_log_lh_inv + noise * torch.sqrt(step_size * 2)
+            # x_mod = x_mod + step_size * grad_log_lh_inv
 
-        m_mod = torch.abs(x_mod)
+        m_mod = torch.abs(x_mod) * torch.sign(m_mod)
 
         return x_mod, m_mod
