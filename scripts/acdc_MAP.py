@@ -69,7 +69,8 @@ if __name__ == '__main__':
 
     # save image and measurement
     vis_images(img[0], if_save=True, save_dir=log_dir, filename="original.png")
-    vis_images(torch.abs(measurement[0]), if_save=True, save_dir=log_dir, filename="measurement.png")
+    eps = 1e-6
+    vis_images(torch.log(torch.abs(measurement[0]) + eps), if_save=True, save_dir=log_dir, filename="measurement.png")
     vis_images(torch.abs(linear_tfm.conj_op(measurement))[0], if_save=True, save_dir=log_dir,
                filename="zero_filled_recons.png")
 

@@ -65,14 +65,16 @@ if __name__ == '__main__':
         config.data.image_size
     )
     x_init = torch.rand(*x_mod_shape).to(device)
-    linear_tfm = UndersamplingFourier(args_dict["R"], args_dict["center_lines_frac"], x_mod_shape[1:],
+    linear_tfm = RandomUndersamplingFourier(args_dict["R"], args_dict["center_lines_frac"], x_mod_shape[1:],
                                       args_dict["seed"])
     measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
 
     # save image and measurement
     vis_images(img[0], if_save=True, save_dir=log_dir, filename="original.png")
-    vis_images(torch.abs(measurement[0]), if_save=True, save_dir=log_dir, filename="measurement.png")
-
+    eps = 1e-6
+    vis_images(torch.log(torch.abs(measurement[0]) + eps), if_save=True, save_dir=log_dir, filename="measurement.png")
+    vis_images(torch.abs(linear_tfm.conj_op(measurement))[0], if_save=True, save_dir=log_dir, filename="direct_recons.png")
+    
     MAP_optimizer = UFMAP(
         x_init=x_init,
         measurement=measurement,
