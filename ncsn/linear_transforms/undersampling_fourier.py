@@ -71,7 +71,11 @@ class RandomUndersamplingFourier(LinearTransform):
         return X
 
     def projection(self, X: torch.Tensor, S: torch.Tensor, lamda: float) -> torch.Tensor:
-        warnings.warn("Not used!")
+        # X, S: (B, C, H, W)
+        mask = self.mask.to(X.device)  # (1, 1, W)
+        S_from_X = i2k_complex(X)
+        S_retrained_mixture = lamda * S + (1 - lamda) * mask * S_from_X
+        S_unretrained = (1 - mask) * S_from_X
+        X_out = k2i_complex(S_retrained_mixture + S_unretrained)
 
-        return X
-
+        return X_out

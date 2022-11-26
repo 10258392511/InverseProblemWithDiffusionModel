@@ -36,8 +36,8 @@ class SkipLines(LinearTransform):
         X_out = torch.empty_like(X)
         line_mask_retained = torch.zeros(H, device=X.device, dtype=bool)
         line_mask_retained[::self.num_skip_lines] = True
-        masked = X[:, :, torch.logical_not(line_mask_retained), :]
-        unmasked = lamda * S + (1 - lamda) * self(X)
+        masked = X[:, :, torch.logical_not(line_mask_retained), :]  # masked out
+        unmasked = lamda * S + (1 - lamda) * self(X)  # (B, C, H', W)
         X_out[:, :, line_mask_retained, :] = unmasked
         X_out[:, :, torch.logical_not(line_mask_retained), :] = masked
 
