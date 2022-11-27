@@ -353,7 +353,7 @@ class ALDInvSeg(ALDOptimizer):
 
 class ALDInvClfProximal(ALDInvClf):
     def __init__(self, proximal: Proximal, clf_start_time, clf_step_type="linear", *args, **kwargs):
-        super(ALDInvClfProximal, self).__init__(**kwargs)
+        super(ALDInvClfProximal, self).__init__(*args, **kwargs)
         self.proximal = proximal
         self.clf_start_time = clf_start_time
         self.clf_step_type = clf_step_type
@@ -398,14 +398,14 @@ class ALDInvClfProximal(ALDInvClf):
             clf_lamda = self.lh_weights[c]
 
             ### inserting pt ###
-            x_mod = self.init_estimation(x_mod, alpha=step_size, **kwargs)
+            x_mod = self.init_estimation(x_mod, alpha=step_size, sigma=sigma, **kwargs)
             ####################
 
             for s in range(n_steps_each):
                 grad = scorenet(x_mod, labels)  # (B, C, H, W)
 
                 ### inserting pt ###
-                grad = self.adjust_grad(grad, x_mod, sigma=sigma, lamda=clf_lamda, **kwargs)
+                grad = self.adjust_grad(grad, x_mod, sigma=sigma, clf_lamda=clf_lamda, **kwargs)
                 ####################
 
                 noise = torch.randn_like(x_mod)
@@ -435,11 +435,11 @@ class ALDInvClfProximal(ALDInvClf):
 
     def adjust_grad(self, grad, x_mod, **kwargs):
         """
-        kwargs: cls, lamda, sigma
+        kwargs: cls, clf_lamda, sigma
         """
         # x_mod: (B, C, H, W)
         cls = kwargs["cls"]
-        lamda = kwargs["lambda"]
+        lamda = kwargs["clf_lamda"]
         sigma = kwargs["sigma"]
 
         grad_log_lh_clf = compute_clf_grad(self.clf, x_mod, cls)  # (B, C, H, W)

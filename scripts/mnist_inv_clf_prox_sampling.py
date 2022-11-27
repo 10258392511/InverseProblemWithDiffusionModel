@@ -22,7 +22,7 @@ from InverseProblemWithDiffusionModel.helpers.utils import vis_images, create_fi
 
 if __name__ == '__main__':
     """
-    python scripts/mnist_inv_clf_prx_sampling.py
+    python scripts/mnist_inv_clf_prox_sampling.py
     """
     original_stdout = sys.stdout
     original_stderr = sys.stderr
@@ -66,9 +66,10 @@ if __name__ == '__main__':
         config.data.image_size
     )
     linear_tfm = SkipLines(args_dict["num_skip_lines"], x_mod_shape[1:])
-    proximal = get_proximal(args_dict["proximal_type"])
+    proximal_constr = get_proximal(args_dict["proximal_type"])
+    proximal = proximal_constr(linear_tfm)
     measurement = linear_tfm(img)
-    ALD_sampler = ALDInvClf(
+    ALD_sampler = ALDInvClfProximal(
         proximal,
         args_dict["clf_start_time"],
         args_dict["clf_step_type"],
@@ -101,7 +102,6 @@ if __name__ == '__main__':
     sys.stdout = log_file
     sys.stderr = log_file
 
-    print(f"current: {i + 1}/{len(lamda_grid)}, lambda = {lamda_iter}")
     ALD_call_params = dict(cls=label, lamda=args_dict["lamda"])
     img_out = ALD_sampler(**ALD_call_params)[0]
 
