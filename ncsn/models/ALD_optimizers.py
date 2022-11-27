@@ -3,6 +3,7 @@ import torch
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from . import freeze_model, compute_clf_grad, compute_seg_grad
+from .proximal_op import Proximal, L2Penalty, Constrained
 from InverseProblemWithDiffusionModel.helpers.utils import data_transform, vis_images
 
 
@@ -65,13 +66,18 @@ class ALDOptimizer(abc.ABC):
 
         print("sampling...")
         # x_mod = torch.rand(*self.x_mod_shape).to(self.device)
+        ### inserting pt ###
         x_mod = self.init_x_mod()
+        ####################
+
         x_mod = data_transform(self.config, x_mod)
 
         images = []
         print_interval = len(sigmas) // 10
 
+        ### inserting pt ###
         self.preprocessing_steps(**kwargs)
+        ####################
 
         for c, sigma in enumerate(sigmas):
             if c % print_interval == 0:
@@ -81,12 +87,16 @@ class ALDOptimizer(abc.ABC):
             labels = labels.long()
             step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
 
-            x_mod = self.init_estimation(x_mod, **kwargs)
+            ### inserting pt ###
+            x_mod = self.init_estimation(x_mod, alpha=step_size, **kwargs)
+            ####################
 
             for s in range(n_steps_each):
                 grad = scorenet(x_mod, labels)  # (B, C, H, W)
 
+                ### inserting pt ###
                 grad = self.adjust_grad(grad, x_mod, sigma=sigma, **kwargs)
+                ####################
 
                 noise = torch.randn_like(x_mod)
                 grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
@@ -339,3 +349,129 @@ class ALDInvSeg(ALDOptimizer):
         m_mod = torch.abs(x_mod)
 
         return x_mod, m_mod
+
+
+class ALDInvClfProximal(ALDInvClf):
+    def __init__(self, proximal: Proximal, clf_start_time, clf_step_type="linear", *args, **kwargs):
+        super(ALDInvClfProximal, self).__init__(**kwargs)
+        self.proximal = proximal
+        self.clf_start_time = clf_start_time
+        self.clf_step_type = clf_step_type
+        self.lh_weights = get_lh_weights(self.sigmas, self.clf_start_time, self.clf_step_type)  # (L,)
+
+    def __call__(self, **kwargs):
+        """
+        kwargs:
+            ALDInvClf: lamda
+            ALDInvSeg: lamda
+        """
+        torch.set_grad_enabled(False)
+        scorenet = self.scorenet
+        sigmas = self.sigmas
+        n_steps_each = self.params["n_steps_each"]
+        step_lr = self.params["step_lr"]
+        denoise = self.params["denoise"]
+        final_only = self.params["final_only"]
+
+        print("sampling...")
+        # x_mod = torch.rand(*self.x_mod_shape).to(self.device)
+        ### inserting pt ###
+        x_mod = self.init_x_mod()
+        ####################
+
+        x_mod = data_transform(self.config, x_mod)
+
+        images = []
+        print_interval = len(sigmas) // 10
+
+        ### inserting pt ###
+        self.preprocessing_steps(**kwargs)
+        ####################
+
+        for c, sigma in enumerate(sigmas):
+            if c % print_interval == 0:
+                print(f"{c + 1}/{len(sigmas)}")
+
+            labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
+            labels = labels.long()
+            step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
+            clf_lamda = self.lh_weights[c]
+
+            ### inserting pt ###
+            x_mod = self.init_estimation(x_mod, alpha=step_size, **kwargs)
+            ####################
+
+            for s in range(n_steps_each):
+                grad = scorenet(x_mod, labels)  # (B, C, H, W)
+
+                ### inserting pt ###
+                grad = self.adjust_grad(grad, x_mod, sigma=sigma, lamda=clf_lamda, **kwargs)
+                ####################
+
+                noise = torch.randn_like(x_mod)
+                grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
+                noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
+                x_mod = x_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
+
+                print(f"x_mod: {(x_mod.max(), x_mod.min())}")
+
+                image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
+                snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
+                grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
+
+                if not final_only:
+                    images.append(x_mod.to('cpu'))
+
+        if denoise:
+            last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
+            last_noise = last_noise.long()
+            x_mod = x_mod + sigmas[-1] ** 2 * scorenet(x_mod, last_noise)
+            images.append(x_mod.to('cpu'))
+
+        if final_only:
+            return [x_mod.to('cpu')]
+        else:
+            return images
+
+    def adjust_grad(self, grad, x_mod, **kwargs):
+        """
+        kwargs: cls, lamda, sigma
+        """
+        # x_mod: (B, C, H, W)
+        cls = kwargs["cls"]
+        lamda = kwargs["lambda"]
+        sigma = kwargs["sigma"]
+
+        grad_log_lh_clf = compute_clf_grad(self.clf, x_mod, cls)  # (B, C, H, W)
+        grad = grad + grad_log_lh_clf / sigma * lamda
+
+        return grad
+
+    def init_estimation(self, x_mod, **kwargs):
+        """
+        kwargs:
+            sigma: noise std
+            L2Penalty:
+                alpha: step-size for the ALD step
+                lamda: hyper-param, for ||Ax - y||^2 / lamda
+            Constrained:
+                lamda: hyper-param, for balancing info retained and not retained
+        """
+        sigma = kwargs["sigma"]
+        measurement = self.measurement + sigma * self.linear_tfm(torch.rand_like(x_mod))
+
+        if isinstance(self.proximal, L2Penalty):
+            alpha = kwargs["alpha"]
+            lamda = kwargs["lamda"]
+            x_mod = self.proximal(x_mod, self.measurement, alpha, lamda)
+
+            return x_mod
+
+        elif isinstance(self.proximal, Constrained):
+            lamda = kwargs["lamda"]
+            x_mod = self.proximal(x_mod, self.measurement, lamda)
+
+            return x_mod
+
+        else:
+            return super().init_estimation(x_mod, **kwargs)

@@ -16,7 +16,7 @@ class Proximal(object):
 
 
 class L2Penalty(Proximal):
-    def __call__(self, z, y, alpha, lamda, num_steps=5):
+    def __call__(self, z, y, alpha, lamda, num_steps=200):
         """
         x <- argmin_x 1 / 2 * norm(x - z)^2 + 1 / 2 * alpha / lamda * norm(Ax - y)
 
@@ -35,6 +35,10 @@ class L2Penalty(Proximal):
         #     warnings.warn(f"CG not successful: with exit code {exit_code}")
         #
         # return x
+
+        # keep z as real image for now
+        # z = z.to(torch.complex64): accurate solution but still needs complex2mag
+
         alpha = 1 / alpha  # empirical obs: reg strength should increase as number of iterations increases
         def loss(x):
             # x: (B, C, H, W)
@@ -47,15 +51,15 @@ class L2Penalty(Proximal):
         x_sol = z.clone()
         # x_sol = torch.randn_like(z)
         x_sol.requires_grad = True
-        opt = torch.optim.LBFGS([x_sol])
-        # opt = torch.optim.SGD([x_sol], lr=1e-2)
+        # opt = torch.optim.LBFGS([x_sol])
+        opt = torch.optim.Adam([x_sol], lr=5e-1)
 
         for _ in range(num_steps):
             def closure():
                 opt.zero_grad()
                 loss_val = loss(x_sol)
                 loss_val.backward()
-                print(loss_val.item())
+                # print(loss_val.item())
 
                 return loss_val
             opt.step(closure)
@@ -68,6 +72,8 @@ class L2Penalty(Proximal):
         alpha = 1 / alpha
         b = z + alpha / lamda * self.lin_tfm.conj_op(y)
         lhs = x_sol + alpha / lamda * self.lin_tfm.conj_op(self.lin_tfm(x_sol))
+        # b = self.lin_tfm.conj_op(y)
+        # lhs = self.lin_tfm.conj_op(self.lin_tfm(x_sol))
 
         return (torch.abs(lhs - b) ** 2).sum(dim=(1, 2, 3)).mean()
 
