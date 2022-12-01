@@ -32,7 +32,8 @@ if __name__ == '__main__':
     parser.add_argument("--clf_start_time", type=float, default=0.)
     parser.add_argument("--clf_step_type", default="linear")
     parser.add_argument("--lamda", type=float, default=1.)
-    parser.add_argument("--step_lr", type=float, default=0.01)  # overwriting config.sampling.step_lr
+    parser.add_argument("--step_lr", type=float, default=0.0000062)  # overwriting config.sampling.step_lr
+    parser.add_argument("--num_steps_each", type=int, default=5)
     parser.add_argument("--proximal_type", default="L2Penalty")
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
@@ -60,6 +61,7 @@ if __name__ == '__main__':
         "denoise": config.sampling.denoise
     }
     ALD_sampler_params["step_lr"] = args_dict["step_lr"]
+    ALD_sampler_params["num_steps_each"] = args_dict["num_steps_each"]
     sigmas = get_sigmas(config)
     x_mod_shape = (
         1,
@@ -104,7 +106,7 @@ if __name__ == '__main__':
     sys.stdout = log_file
     sys.stderr = log_file
 
-    ALD_call_params = dict(cls=label, lamda=args_dict["lamda"])
+    ALD_call_params = dict(cls=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"])
     img_out = ALD_sampler(**ALD_call_params)[0]
 
     filename = create_filename(filename_dict, suffix=".png")

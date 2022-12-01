@@ -362,7 +362,7 @@ class ALDInvClfProximal(ALDInvClf):
 
     def __call__(self, **kwargs):
         """
-        kwargs: lamda, save_dir
+        kwargs: cls, lamda, save_dir
         """
         torch.set_grad_enabled(False)
         scorenet = self.scorenet
@@ -400,7 +400,7 @@ class ALDInvClfProximal(ALDInvClf):
 
             ### inserting pt ###
             # x_mod = self.init_estimation(x_mod, alpha=step_size, sigma=sigma, **kwargs)
-            x_mod = self.init_estimation(x_mod)
+            # x_mod = self.init_estimation(x_mod)
             ####################
 
             for s in range(n_steps_each):
@@ -424,10 +424,10 @@ class ALDInvClfProximal(ALDInvClf):
                 if not final_only:
                     images.append(x_mod.to('cpu'))
 
-        ### inserting pt ###
-        x_mod = self.post_processing(x_mod, alpha=step_lr, sigma=sigma, **kwargs)
-        ####################
-
+            ### inserting pt ###
+            x_mod = self.post_processing(x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+            ####################
+    
         if denoise:
             last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
             last_noise = last_noise.long()
@@ -453,7 +453,7 @@ class ALDInvClfProximal(ALDInvClf):
 
         return grad
 
-    def post_processsing(self, x_mod, **kwargs):
+    def post_processing(self, x_mod, **kwargs):
         """
         kwargs:
             sigma: noise std
@@ -470,7 +470,8 @@ class ALDInvClfProximal(ALDInvClf):
         if isinstance(self.proximal, L2Penalty):
             alpha = kwargs["alpha"]
             lamda = kwargs["lamda"]
-            x_mod = self.proximal(x_mod, self.measurement, alpha, lamda + (sigma ** 2))
+            # x_mod = self.proximal(x_mod, self.measurement, alpha, lamda ** 2 + sigma ** 2)
+            x_mod = self.proximal(x_mod, self.measurement, 1., lamda ** 2 + sigma ** 2)
 
             return x_mod
 
@@ -481,4 +482,5 @@ class ALDInvClfProximal(ALDInvClf):
             return x_mod
 
         else:
-            return super().init_estimation(x_mod, **kwargs)
+            return x_mod
+
