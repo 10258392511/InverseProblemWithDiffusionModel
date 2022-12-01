@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--lamda", type=float, default=1.)
     parser.add_argument("--step_lr", type=float, default=0.0000062)  # overwriting config.sampling.step_lr
     parser.add_argument("--num_steps_each", type=int, default=5)
+    parser.add_argument("--lr_scaled", type=float, default=1.)
     parser.add_argument("--proximal_type", default="L2Penalty")
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
@@ -106,12 +107,18 @@ if __name__ == '__main__':
     sys.stdout = log_file
     sys.stderr = log_file
 
-    ALD_call_params = dict(cls=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"])
+    ALD_call_params = dict(cls=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"],
+                           lr_scaled=args_dict["lr_scaled"])
     img_out = ALD_sampler(**ALD_call_params)[0]
 
     filename = create_filename(filename_dict, suffix=".png")
     vis_images(img_out[0], if_save=True, save_dir=args_dict["save_dir"], filename=filename,
                titles=[f"cls: {label[0].item()}"])
+
+    # img_out, measurement: "(1, C, H, W)"
+    l2_error = torch.sum(torch.abs(linear_tfm(img_out) - measurement) ** 2, dim=(1, 2, 3)).mean().item()
+    print("-" * 100)
+    print(f"reconstruction error: {l2_error}")
 
     del img_out
     log_file.close()

@@ -362,7 +362,7 @@ class ALDInvClfProximal(ALDInvClf):
 
     def __call__(self, **kwargs):
         """
-        kwargs: cls, lamda, save_dir
+        kwargs: cls, lamda, save_dir, lr_scaled
         """
         torch.set_grad_enabled(False)
         scorenet = self.scorenet
@@ -461,6 +461,7 @@ class ALDInvClfProximal(ALDInvClf):
                 alpha: step-size for the ALD step, unscaled (i.e lr)
                 lamda: hyper-param, for ||Ax - y||^2 / (lamda^2 + sigma^2)
                        i.e lamda = sigma_data
+                lr_scaled: empirical step-length
             Constrained:
                 lamda: hyper-param, for balancing info retained and not retained
         """
@@ -470,8 +471,9 @@ class ALDInvClfProximal(ALDInvClf):
         if isinstance(self.proximal, L2Penalty):
             alpha = kwargs["alpha"]
             lamda = kwargs["lamda"]
+            lr_scaled = kwargs["lr_scaled"]
             # x_mod = self.proximal(x_mod, self.measurement, alpha, lamda ** 2 + sigma ** 2)
-            x_mod = self.proximal(x_mod, self.measurement, 1., lamda ** 2 + sigma ** 2)
+            x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda ** 2 + sigma ** 2)
 
             return x_mod
 
