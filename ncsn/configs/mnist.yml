@@ -12,7 +12,7 @@ sampling:
   batch_size: 1
   data_init: false
   step_lr: 0.0000062
-  n_steps_each: 5
+  n_steps_each: 1  # 5
   ckpt_id: 300000
   final_only: true
   fid: false

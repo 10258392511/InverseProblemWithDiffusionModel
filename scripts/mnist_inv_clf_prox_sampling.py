@@ -32,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument("--clf_start_time", type=float, default=0.)
     parser.add_argument("--clf_step_type", default="linear")
     parser.add_argument("--lamda", type=float, default=1.)
+    parser.add_argument("--step_lr", type=float, default=0.01)  # overwriting config.sampling.step_lr
     parser.add_argument("--proximal_type", default="L2Penalty")
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
@@ -58,6 +59,7 @@ if __name__ == '__main__':
         "final_only": config.sampling.final_only,
         "denoise": config.sampling.denoise
     }
+    ALD_sampler_params["step_lr"] = args_dict["step_lr"]
     sigmas = get_sigmas(config)
     x_mod_shape = (
         1,

@@ -1,5 +1,6 @@
 import abc
 import torch
+import os
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from . import freeze_model, compute_clf_grad, compute_seg_grad
@@ -361,9 +362,7 @@ class ALDInvClfProximal(ALDInvClf):
 
     def __call__(self, **kwargs):
         """
-        kwargs:
-            ALDInvClf: lamda
-            ALDInvSeg: lamda
+        kwargs: lamda, save_dir
         """
         torch.set_grad_enabled(False)
         scorenet = self.scorenet
@@ -391,6 +390,8 @@ class ALDInvClfProximal(ALDInvClf):
         for c, sigma in enumerate(sigmas):
             if c % print_interval == 0:
                 print(f"{c + 1}/{len(sigmas)}")
+                vis_images(x_mod[0], if_save=True, save_dir=os.path.join(kwargs.get("save_dir"), "sampling_snapshots/"),
+                           filename=f"step_{c}_start_time_{self.clf_start_time}.png")
 
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
             labels = labels.long()
@@ -398,7 +399,8 @@ class ALDInvClfProximal(ALDInvClf):
             clf_lamda = self.lh_weights[c]
 
             ### inserting pt ###
-            x_mod = self.init_estimation(x_mod, alpha=step_size, sigma=sigma, **kwargs)
+            # x_mod = self.init_estimation(x_mod, alpha=step_size, sigma=sigma, **kwargs)
+            x_mod = self.init_estimation(x_mod)
             ####################
 
             for s in range(n_steps_each):
@@ -421,6 +423,10 @@ class ALDInvClfProximal(ALDInvClf):
 
                 if not final_only:
                     images.append(x_mod.to('cpu'))
+
+        ### inserting pt ###
+        x_mod = self.post_processing(x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+        ####################
 
         if denoise:
             last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
@@ -447,13 +453,14 @@ class ALDInvClfProximal(ALDInvClf):
 
         return grad
 
-    def init_estimation(self, x_mod, **kwargs):
+    def post_processsing(self, x_mod, **kwargs):
         """
         kwargs:
             sigma: noise std
             L2Penalty:
-                alpha: step-size for the ALD step
-                lamda: hyper-param, for ||Ax - y||^2 / lamda
+                alpha: step-size for the ALD step, unscaled (i.e lr)
+                lamda: hyper-param, for ||Ax - y||^2 / (lamda^2 + sigma^2)
+                       i.e lamda = sigma_data
             Constrained:
                 lamda: hyper-param, for balancing info retained and not retained
         """
@@ -463,7 +470,7 @@ class ALDInvClfProximal(ALDInvClf):
         if isinstance(self.proximal, L2Penalty):
             alpha = kwargs["alpha"]
             lamda = kwargs["lamda"]
-            x_mod = self.proximal(x_mod, self.measurement, alpha, lamda)
+            x_mod = self.proximal(x_mod, self.measurement, alpha, lamda + (sigma ** 2))
 
             return x_mod
 

@@ -39,7 +39,7 @@ class L2Penalty(Proximal):
         # keep z as real image for now
         # z = z.to(torch.complex64): accurate solution but still needs complex2mag
 
-        alpha = 1 / alpha  # empirical obs: reg strength should increase as number of iterations increases
+        # alpha = 1 / alpha  # empirical obs: reg strength should increase as number of iterations increases
         def loss(x):
             # x: (B, C, H, W)
             data_error = 0.5 * (torch.abs(x - z) ** 2).sum(dim=(1, 2, 3)).mean()
@@ -66,10 +66,10 @@ class L2Penalty(Proximal):
 
         return x_sol.detach()
 
-    def check_solution(self, z, y, alpha, lamda):
+    @torch.no_grad()
+    def check_solution(self, x_sol, z, y, alpha, lamda):
         warnings.warn("For testing only, don't use this in iterations.")
-        x_sol = self(z, y, alpha, lamda)
-        alpha = 1 / alpha
+        # alpha = 1 / alpha
         b = z + alpha / lamda * self.lin_tfm.conj_op(y)
         lhs = x_sol + alpha / lamda * self.lin_tfm.conj_op(self.lin_tfm(x_sol))
         # b = self.lin_tfm.conj_op(y)
