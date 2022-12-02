@@ -116,8 +116,9 @@ if __name__ == '__main__':
                titles=[f"cls: {label[0].item()}"])
 
     # img_out, measurement: "(1, C, H, W)"
-    l2_error = torch.sum(torch.abs(linear_tfm(img_out) - measurement) ** 2, dim=(1, 2, 3)).mean().item()
+    l2_error = torch.sum(torch.abs(linear_tfm(img_out).detach().cpu() - measurement.detach().cpu()) ** 2, dim=(1, 2, 3)).mean().item()
     print("-" * 100)
+    print(args_dict)
     print(f"reconstruction error: {l2_error}")
 
     del img_out
