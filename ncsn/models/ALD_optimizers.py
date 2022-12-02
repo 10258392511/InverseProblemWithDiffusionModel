@@ -472,8 +472,8 @@ class ALDInvClfProximal(ALDInvClf):
             alpha = kwargs["alpha"]
             lamda = kwargs["lamda"]
             lr_scaled = kwargs["lr_scaled"]
-            # x_mod = self.proximal(x_mod, self.measurement, alpha, lamda ** 2 + sigma ** 2)
-            x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda ** 2 + sigma ** 2)
+            # x_mod = self.proximal(x_mod, self.measurement, alpha, lamda + sigma ** 2)
+            x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
 
             return x_mod
 
