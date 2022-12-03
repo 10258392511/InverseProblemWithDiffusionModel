@@ -174,11 +174,11 @@ class ALDInvClf(ALDOptimizer):
 
 
 class ALDInvSeg(ALDOptimizer):
-    def __init__(self, seg_start_time, seg_step_type="linear", **kwargs):
+    def __init__(self, seg_start_time, seg_step_type, *args, **kwargs):
         """
         seg_start_time: in [0, 1]
         """
-        super(ALDInvSeg, self).__init__(**kwargs)
+        super(ALDInvSeg, self).__init__(*args, **kwargs)
         self.seg_start_time = seg_start_time
         self.seg_step_type = seg_step_type
         self.lh_weights = get_lh_weights(self.sigmas, self.seg_start_time, self.seg_step_type)
@@ -488,11 +488,12 @@ class ALDInvClfProximal(ALDInvClf):
 
 
 class ALDInvSegProximal(ALDInvSeg):
-    def __init__(self, proximal: Proximal, seg_start_time, seg_step_type="linear", *args, **kwargs):
-        super(ALDInvClfProximal, self).__init__(*args, **kwargs)
+    def __init__(self, proximal: Proximal, seg_start_time, seg_step_type, *args, **kwargs):
+        super(ALDInvSegProximal, self).__init__(seg_start_time, seg_step_type, *args, **kwargs)
         self.proximal = proximal
-        self.seg_start_time = seg_start_time
-        self.seg_step_type = seg_step_type
+        # self.seg_start_time = seg_start_time
+        # self.seg_step_type = seg_step_type
+        # print(f"seg_start_time: {self.seg_start_time}")
         self.lh_weights = get_lh_weights(self.sigmas, self.seg_start_time, self.seg_step_type)  # (L,)
 
     def __call__(self, **kwargs):
@@ -529,7 +530,7 @@ class ALDInvSegProximal(ALDInvSeg):
                 print(f"{c + 1}/{len(sigmas)}")
                 # vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
                 #            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
-                vis_images(m_mod[0], if_save=True, save_dir=kwargs.get("save_dir"),
+                vis_images(m_mod[0], if_save=True, save_dir=os.path.join(kwargs.get("save_dir", "sampling_snapshots/")),
                            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
 
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)

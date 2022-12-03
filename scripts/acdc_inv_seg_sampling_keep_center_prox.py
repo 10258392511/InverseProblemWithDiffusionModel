@@ -15,6 +15,7 @@ from InverseProblemWithDiffusionModel.helpers.load_data import load_data, load_c
 from InverseProblemWithDiffusionModel.helpers.load_model import reload_model
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import RandomUndersamplingFourier
+from InverseProblemWithDiffusionModel.ncsn.models.proximal_op import get_proximal
 from InverseProblemWithDiffusionModel.ncsn.models.ALD_optimizers import ALDInvSegProximal
 from InverseProblemWithDiffusionModel.helpers.utils import vis_images, create_filename
 from monai.utils import CommonKeys
@@ -78,8 +79,8 @@ if __name__ == '__main__':
     measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
     ALD_sampler = ALDInvSegProximal(
         proximal,
-        args_dict["clf_start_time"],
-        args_dict["clf_step_type"],
+        args_dict["seg_start_time"],
+        args_dict["seg_step_type"],
         x_mod_shape,
         scorenet,
         sigmas,
@@ -87,7 +88,7 @@ if __name__ == '__main__':
         config,
         measurement,
         linear_tfm,
-        seg,
+        seg=seg,
         device=device
     )
 
@@ -96,7 +97,8 @@ if __name__ == '__main__':
     vis_images(label[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_seg.png")
     vis_images(torch.log(torch.abs(measurement[0]) + eps), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
-    vis_images(torch.abs(linear_tfm.conj_op(measurement)[0]), if_save=True, save_dir=args_dict["save_dir"],
+    direct_recons = torch.abs(linear_tfm.conj_op(measurement)[0])
+    vis_images(direct_recons, if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_zero_padded_recons_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
 
     filename_dict = {
@@ -104,12 +106,14 @@ if __name__ == '__main__':
         "R": args_dict["R"],
         "center_lines_frac": args_dict["center_lines_frac"],
         "seg_step_type": args_dict["seg_step_type"],
-        "seg_start_time": seg_start_time_iter
+        "seg_start_time": args_dict["seg_start_time"]
     }
     log_filename = create_filename(filename_dict, suffix=".txt")
     log_file = open(os.path.join(args_dict["save_dir"], log_filename), "w")
     sys.stdout = log_file
     sys.stderr = log_file
+    original_error = torch.sum(torch.abs(linear_tfm(direct_recons.unsqueeze(0)).detach().cpu() - measurement.detach().cpu()) ** 2, dim=(1, 2, 3)).mean().item()
+    print(f"original error: {original_error}")
 
     ALD_call_params = dict(label=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"],
                            lr_scaled=args_dict["lr_scaled"])
@@ -123,6 +127,7 @@ if __name__ == '__main__':
                          dim=(1, 2, 3)).mean().item()
     print("-" * 100)
     print(args_dict)
+    print(f"original error: {original_error}")
     print(f"reconstruction error: {l2_error}")
 
     del img_out
