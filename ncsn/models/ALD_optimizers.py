@@ -486,3 +486,152 @@ class ALDInvClfProximal(ALDInvClf):
         else:
             return x_mod
 
+
+class ALDInvSegProximal(ALDInvSeg):
+    def __init__(self, proximal: Proximal, seg_start_time, seg_step_type="linear", *args, **kwargs):
+        super(ALDInvClfProximal, self).__init__(*args, **kwargs)
+        self.proximal = proximal
+        self.seg_start_time = seg_start_time
+        self.seg_step_type = seg_step_type
+        self.lh_weights = get_lh_weights(self.sigmas, self.seg_start_time, self.seg_step_type)  # (L,)
+
+    def __call__(self, **kwargs):
+        """
+        kwargs: label, lamda, save_dir, lr_scaled
+        """
+        torch.set_grad_enabled(False)
+        scorenet = self.scorenet
+        sigmas = self.sigmas
+        n_steps_each = self.params["n_steps_each"]
+        step_lr = self.params["step_lr"]
+        denoise = self.params["denoise"]
+        final_only = self.params["final_only"]
+
+        print("sampling...")
+        # x_mod = torch.rand(*self.x_mod_shape).to(self.device)
+        ### inserting pt ###
+        m_mod = self.init_x_mod()
+        ####################
+        m_mod = data_transform(self.config, m_mod)
+        x_mod = self.linear_tfm.conj_op(self.measurement)  # (B, C, H, W)
+        # x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
+        x_mod = m_mod * torch.sgn(x_mod)
+
+        images = []
+        print_interval = len(sigmas) // 10
+
+        ### inserting pt ###
+        self.preprocessing_steps(**kwargs)
+        ####################
+
+        for c, sigma in enumerate(sigmas):
+            if c % print_interval == 0:
+                print(f"{c + 1}/{len(sigmas)}")
+                # vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
+                #            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
+                vis_images(m_mod[0], if_save=True, save_dir=kwargs.get("save_dir"),
+                           filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
+
+            labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
+            labels = labels.long()
+            step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
+
+            # m_mod = self.init_estimation(x_mod, **kwargs)
+            lh_seg_weight = self.lh_weights[c]
+
+            ### inserting pt ###
+            # x_mod = self.init_estimation(x_mod)
+            ####################
+
+            for s in range(n_steps_each):
+                grad_prior = scorenet(m_mod, labels)  # (B, C, H, W)
+
+                ### inserting pt ###
+                grad = self.adjust_grad(grad_prior, m_mod, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                ####################
+
+                noise = torch.randn_like(m_mod)
+                grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
+                noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
+
+                m_mod = m_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
+
+                print(f"m_mod: {(m_mod.max(), m_mod.min())}")  ###
+
+                image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
+                snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
+                grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
+
+
+                if not final_only:
+                    images.append(m_mod.to('cpu'))
+
+            ### inserting pt ###
+            m_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+            ####################
+
+        if denoise:
+            last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
+            last_noise = last_noise.long()
+            m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
+            # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
+            images.append(m_mod.to('cpu'))
+
+        if final_only:
+            return [m_mod.to('cpu')]
+        else:
+            return images
+
+    def adjust_grad(self, grad, m_mod, **kwargs):
+        """
+        kwargs: label, seg_lamda, sigma
+        """
+        # m_mod: (B, C, H, W)
+        label = kwargs["label"]
+        lamda = kwargs["seg_lamda"]
+        sigma = kwargs["sigma"]
+
+        grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label)  # (B, C, H, W)
+        grad = grad + grad_log_lh_seg / sigma * lamda
+
+        return grad
+
+    def post_processing(self, m_mod, x_mod, **kwargs):
+        """
+        kwargs:
+            sigma: noise std
+            L2Penalty:
+                alpha: step-size for the ALD step, unscaled (i.e lr)
+                lamda: hyper-param, for ||Ax - y||^2 / (lamda^2 + sigma^2)
+                       i.e lamda = sigma_data
+                lr_scaled: empirical step-length
+            Constrained:
+                lamda: hyper-param, for balancing info retained and not retained
+        """
+        sigma = kwargs["sigma"]
+        ###
+        x_mod = m_mod * torch.sgn(x_mod)
+        ###
+        if isinstance(self.proximal, L2Penalty):
+            alpha = kwargs["alpha"]
+            lamda = kwargs["lamda"]
+            lr_scaled = kwargs["lr_scaled"]
+            # x_mod = self.proximal(x_mod, self.measurement, alpha, lamda + sigma ** 2)
+            x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
+            ###
+            m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+            ###
+
+            return m_mod
+
+        elif isinstance(self.proximal, Constrained):
+            lamda = kwargs["lamda"]
+            x_mod = self.proximal(x_mod, self.measurement, lamda)
+            ###
+            m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+            ###
+
+            return m_mod
+
+        else:
+            return m_mod
