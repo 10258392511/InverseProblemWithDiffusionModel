@@ -64,7 +64,8 @@ if __name__ == '__main__':
         "denoise": config.sampling.denoise
     }
     ALD_sampler_params["step_lr"] = args_dict["step_lr"]
-    ALD_sampler_params["num_steps_each"] = args_dict["num_steps_each"]
+    ALD_sampler_params["n_steps_each"] = args_dict["num_steps_each"]
+    # print(ALD_sampler_params)
     sigmas = get_sigmas(config)
     x_mod_shape = (
         1,

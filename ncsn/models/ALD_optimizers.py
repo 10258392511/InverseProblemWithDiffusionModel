@@ -514,9 +514,10 @@ class ALDInvSegProximal(ALDInvSeg):
         m_mod = self.init_x_mod()
         ####################
         m_mod = data_transform(self.config, m_mod)
-        x_mod = self.linear_tfm.conj_op(self.measurement)  # (B, C, H, W)
+        # x_mod = self.linear_tfm.conj_op(self.measurement)  # (B, C, H, W)
+        # x_mod = m_mod * torch.sgn(x_mod)
         # x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
-        x_mod = m_mod * torch.sgn(x_mod)
+        x_mod = m_mod.to(torch.complex64)
 
         images = []
         print_interval = len(sigmas) // 10
@@ -557,7 +558,7 @@ class ALDInvSegProximal(ALDInvSeg):
 
                 m_mod = m_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
 
-                print(f"m_mod: {(m_mod.max(), m_mod.min())}")  ###
+                print(f"m_mod, {s + 1}/{n_steps_each}: {(m_mod.max(), m_mod.min())}")  ###
 
                 image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
                 snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
@@ -568,15 +569,19 @@ class ALDInvSegProximal(ALDInvSeg):
                     images.append(m_mod.to('cpu'))
 
             ### inserting pt ###
-            m_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+            # m_mod, x_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+            m_mod, _ = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
             ####################
 
         if denoise:
             last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
             last_noise = last_noise.long()
             m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
-            # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
-            images.append(m_mod.to('cpu'))
+        
+        ### inserting pt ###
+        m_mod = self.last_prox_step(m_mod)
+        ####################
+        images.append(m_mod.to('cpu'))
 
         if final_only:
             return [m_mod.to('cpu')]
@@ -611,19 +616,20 @@ class ALDInvSegProximal(ALDInvSeg):
         """
         sigma = kwargs["sigma"]
         ###
-        x_mod = m_mod * torch.sgn(x_mod)
+        # x_mod = m_mod * torch.sgn(x_mod)
+        x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
         ###
         if isinstance(self.proximal, L2Penalty):
             alpha = kwargs["alpha"]
             lamda = kwargs["lamda"]
             lr_scaled = kwargs["lr_scaled"]
-            # x_mod = self.proximal(x_mod, self.measurement, alpha, lamda + sigma ** 2)
             x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
             ###
-            m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+            # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+            m_mod = torch.abs(x_mod)
             ###
 
-            return m_mod
+            return m_mod, x_mod
 
         elif isinstance(self.proximal, Constrained):
             lamda = kwargs["lamda"]
@@ -632,7 +638,36 @@ class ALDInvSegProximal(ALDInvSeg):
             m_mod = torch.abs(x_mod) * torch.sign(m_mod)
             ###
 
-            return m_mod
+            return m_mod, x_mod
 
         else:
-            return m_mod
+            return m_mod, x_mod
+
+    def last_prox_step(self, m_mod, **kwargs):
+        """
+        kwargs: num_steps, lr
+
+        x0 <- z0.to(complex64)
+        x0 <- argmin_x ||Ax - y0||_2^2
+        z0 <- |x0|
+        """
+        torch.set_grad_enabled(True)
+        num_steps = kwargs.get("num_steps", 50)
+        lr = kwargs.get("lr", 1e-2)
+
+        x_mod = m_mod.to(torch.complex64)  # (B, C, H, W)
+        x_mod.requires_grad = True
+        opt = torch.optim.Adam([x_mod], lr=lr)
+        for i in range(num_steps):
+            s_pred = self.linear_tfm(x_mod)
+            loss = (torch.abs(s_pred - self.measurement) ** 2).sum(dim=(1, 2, 3)).mean()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            print(f"last prox step {i + 1}/{num_steps}: loss {loss.item()}")
+        
+        torch.set_grad_enabled(False)
+        m_mod = torch.abs(x_mod.detach())
+        
+        return m_mod
+        
