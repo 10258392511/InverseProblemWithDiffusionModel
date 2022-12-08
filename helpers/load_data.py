@@ -12,6 +12,7 @@ from monai.transforms import (
     MapTransform,
     ScaleIntensityd,
     CropForegroundd,
+    Resize,
     Resized,
     RandRotated,
     RandAdjustContrastd,
@@ -34,8 +35,8 @@ REGISTERED_DATA_ROOT_DIR = {
     "MNIST": os.path.join(parent_dir, "data"),
     "CINE64": os.path.join(parent_dir, "data/score_labs/data/cine_64"),
     "CINE127": os.path.join(parent_dir, "data/score_labs/data/cine_127"),
-    "ACDC": "/scratch/zhexwu/data/ACDC_textures/data_slices",
-    # "ACDC": "E:\Datasets\ACDC_textures\data_slices"
+    # "ACDC": "/scratch/zhexwu/data/ACDC_textures/data_slices",
+    "ACDC": "E:\Datasets\ACDC_textures\data_slices"
 }
 
 REGISTERED_DATA_CONFIG_FILENAME = {
@@ -277,3 +278,17 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
         batch = torch.cat([batch, torch.zeros_like(batch)], dim=1)  # (B, 2, H, W)
 
     return batch
+
+
+def add_phase(imgs: torch.tensor, init_shape=(3, 3)):
+    # imgs: (B, C, H, W)
+    B, C, H, W = imgs.shape
+    imgs_out = torch.empty_like(imgs, dtype=torch.complex64)
+    for i in range(B):
+        img_iter = imgs[i, ...]  # (C, H, W)
+        phase_init_patch = torch.randn(C, *init_shape, device=img_iter.device)
+        resizer = monai_Resize((H, W), mode="bilinear", align_corners=True)
+        phase = resizer(phase_init_patch)  # (C, H, W)
+        imgs_out[i, ...] = img_iter * torch.exp(1j * phase)
+
+    return imgs_out

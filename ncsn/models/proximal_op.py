@@ -88,13 +88,20 @@ class Constrained(Proximal):
         return X_out
 
 
+class SingleCoil(Proximal):
+    pass
+
+
 def get_proximal(proximal_name: str):
-    assert proximal_name in ["L2Penalty", "Constrained"]
+    assert proximal_name in ["L2Penalty", "Constrained", "SingleCoil"]
     if proximal_name  == "L2Penalty":
         return L2Penalty
 
     elif proximal_name == "Constrained":
         return Constrained
+
+    elif proximal_name == "SingleCoil":
+        return SingleCoil
 
     else:
         raise NotImplementedError

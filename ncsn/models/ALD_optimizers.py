@@ -531,7 +531,7 @@ class ALDInvSegProximal(ALDInvSeg):
                 print(f"{c + 1}/{len(sigmas)}")
                 # vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
                 #            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
-                vis_images(m_mod[0], if_save=True, save_dir=os.path.join(kwargs.get("save_dir", "sampling_snapshots/")),
+                vis_images(m_mod[0], if_save=True, save_dir=os.path.join(kwargs.get("save_dir"), "sampling_snapshots/"),
                            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
 
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
@@ -579,7 +579,7 @@ class ALDInvSegProximal(ALDInvSeg):
             m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
         
         ### inserting pt ###
-        m_mod = self.last_prox_step(m_mod)
+        # m_mod = self.last_prox_step(m_mod)
         ####################
         images.append(m_mod.to('cpu'))
 

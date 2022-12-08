@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
-from InverseProblemWithDiffusionModel.helpers.load_data import load_data, load_config
+from InverseProblemWithDiffusionModel.helpers.load_data import load_data, load_config, add_phase
 from InverseProblemWithDiffusionModel.helpers.load_model import reload_model
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import RandomUndersamplingFourier
@@ -39,6 +39,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_steps_each", type=int, default=3)
     parser.add_argument("--lr_scaled", type=float, default=1.)
     parser.add_argument("--proximal_type", default="L2Penalty")
+    parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
     args_dict = vars(parser.parse_args())
@@ -65,10 +66,11 @@ if __name__ == '__main__':
     }
     ALD_sampler_params["step_lr"] = args_dict["step_lr"]
     ALD_sampler_params["n_steps_each"] = args_dict["num_steps_each"]
+    ALD_sampler_params["denoise"] = False
     # print(ALD_sampler_params)
     sigmas = get_sigmas(config)
     x_mod_shape = (
-        1,
+        args_dict["num_samples"],
         config.data.channels,
         config.data.image_size,
         config.data.image_size
@@ -77,7 +79,11 @@ if __name__ == '__main__':
                                             args_dict["seed"])
     proximal_constr = get_proximal(args_dict["proximal_type"])
     proximal = proximal_constr(linear_tfm)
+
+    img_complex = add_phase(img)  # (1, 1, H, W)
     measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
+    measurement = measurement.repeat(args_dict["num_samples"], 1, 1, 1)
+
     ALD_sampler = ALDInvSegProximal(
         proximal,
         args_dict["seg_start_time"],
@@ -94,7 +100,8 @@ if __name__ == '__main__':
     )
 
     eps = 1e-6
-    vis_images(img[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc.png")
+    vis_images(torch.abs(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc_mag.png")
+    vis_images(torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc_phase.png")
     vis_images(label[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_seg.png")
     vis_images(torch.log(torch.abs(measurement[0]) + eps), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
@@ -118,7 +125,7 @@ if __name__ == '__main__':
 
     ALD_call_params = dict(label=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"],
                            lr_scaled=args_dict["lr_scaled"])
-    img_out = ALD_sampler(**ALD_call_params)[0]
+    img_out = ALD_sampler(**ALD_call_params)[0]  # (B, C, H, W)
 
     filename = create_filename(filename_dict, suffix=".png")
     vis_images(img_out[0], if_save=True, save_dir=args_dict["save_dir"], filename=filename)
@@ -131,7 +138,11 @@ if __name__ == '__main__':
     print(f"original error: {original_error}")
     print(f"reconstruction error: {l2_error}")
 
-    del img_out
+    save_dir = args_dict["save_dir"]
+    torch.save(img.detach().cpu(), os.path.join(save_dir, "original.pt"))
+    torch.save(measurement.detach().cpu(), os.path.join(save_dir, "measurement.pt"))
+    torch.save(img_out.detach().cpu(), os.path.join(save_dir, "reconstructions.pt"))
+
     log_file.close()
 
     sys.stdout = original_stdout
