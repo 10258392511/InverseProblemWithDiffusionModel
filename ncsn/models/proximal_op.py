@@ -4,7 +4,8 @@ import torch
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from scipy.sparse.linalg import cg
-from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform, i2k_complex, k2i_complex
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import RandomUndersamplingFourier
 
 
 class Proximal(object):
@@ -89,7 +90,35 @@ class Constrained(Proximal):
 
 
 class SingleCoil(Proximal):
-    pass
+    def __init__(self, lin_tfm: RandomUndersamplingFourier):
+        super(SingleCoil, self).__init__(lin_tfm)
+        assert isinstance(self.lin_tfm, RandomUndersamplingFourier), "only supporting RandomUnversamplingFourier"
+
+    def __call__(self, z, y, alpha, lamda):
+        """
+        Closed-form solution of
+        x <- argmin_x 1 / 2 * norm(x - z)^2 + 1 / 2 * alpha / lamda * norm(Ax - y)
+        x = F' diag(1 / (1 + alpha * M_{ii})) F (z + alpha F'y)
+        """
+        alpha = alpha / lamda
+        mask = self.lin_tfm.mask
+        x_out = z + alpha * k2i_complex(y)
+        x_out = i2k_complex(x_out)
+        mask_inv = 1 / (1 + mask * alpha)
+        x_out = mask_inv * x_out
+        x_out = k2i_complex(x_out)
+
+        return x_out
+
+    @torch.no_grad()
+    def check_solution(self, x_out, z, y, alpha, lamda):
+        warnings.warn("For testing only, don't use this in iterations.")
+        alpha = alpha / lamda
+        lhs = x_out + alpha * self.lin_tfm.conj_op(self.lin_tfm(x_out))
+        rhs = alpha * self.lin_tfm.conj_op(y) + z
+
+        # x_out: (B, C, H, W)
+        return (torch.abs(lhs - rhs) ** 2).sum(dim=(1, 2, 3)).mean()
 
 
 def get_proximal(proximal_name: str):

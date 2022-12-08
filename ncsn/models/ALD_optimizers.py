@@ -4,7 +4,7 @@ import os
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from . import freeze_model, compute_clf_grad, compute_seg_grad
-from .proximal_op import Proximal, L2Penalty, Constrained
+from .proximal_op import Proximal, L2Penalty, Constrained, SingleCoil
 from InverseProblemWithDiffusionModel.helpers.utils import data_transform, vis_images
 
 
@@ -495,6 +495,8 @@ class ALDInvSegProximal(ALDInvSeg):
         # self.seg_step_type = seg_step_type
         # print(f"seg_start_time: {self.seg_start_time}")
         self.lh_weights = get_lh_weights(self.sigmas, self.seg_start_time, self.seg_step_type)  # (L,)
+        self.if_print = False
+        self.print_args = {}
 
     def __call__(self, **kwargs):
         """
@@ -527,7 +529,15 @@ class ALDInvSegProximal(ALDInvSeg):
         ####################
 
         for c, sigma in enumerate(sigmas):
+            self.if_print = False
+
             if c % print_interval == 0:
+                self.if_print = True
+                self.print_args = {
+                    "c": c,
+                    "save_dir": os.path.join(kwargs.get("save_dir"), "phase_images/")
+                }
+
                 print(f"{c + 1}/{len(sigmas)}")
                 # vis_images(torch.abs(x_mod[0]), if_save=True, save_dir=kwargs.get("save_dir"),
                 #            filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
@@ -619,11 +629,23 @@ class ALDInvSegProximal(ALDInvSeg):
         # x_mod = m_mod * torch.sgn(x_mod)
         x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
         ###
-        if isinstance(self.proximal, L2Penalty):
+        if isinstance(self.proximal, L2Penalty) or isinstance(self.proximal, SingleCoil):
             alpha = kwargs["alpha"]
             lamda = kwargs["lamda"]
             lr_scaled = kwargs["lr_scaled"]
-            x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
+
+            if self.if_print:
+                vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
+                           save_dir=self.print_args["save_dir"], filename=f"step_{c}_before.png")
+
+            # x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
+            x_mod = self.proximal(x_mod, self.measurement, 2 * alpha * (sigma / self.sigmas[-1]) ** 2,
+                                  lamda + sigma ** 2)
+
+            if self.if_print:
+                vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
+                           save_dir=self.print_args["save_dir"], filename=f"step_{c}_after.png")
+
             ###
             # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
             m_mod = torch.abs(x_mod)
