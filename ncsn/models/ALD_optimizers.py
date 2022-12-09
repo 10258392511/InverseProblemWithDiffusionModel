@@ -6,6 +6,7 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 from . import freeze_model, compute_clf_grad, compute_seg_grad
 from .proximal_op import Proximal, L2Penalty, Constrained, SingleCoil
 from InverseProblemWithDiffusionModel.helpers.utils import data_transform, vis_images
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms import i2k_complex, k2i_complex
 
 
 def get_lh_weights(sigmas, start_time, curve_type="linear"):
@@ -589,7 +590,7 @@ class ALDInvSegProximal(ALDInvSeg):
             m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
         
         ### inserting pt ###
-        # m_mod = self.last_prox_step(m_mod)
+        m_mod = self.last_prox_step(m_mod)
         ####################
         images.append(m_mod.to('cpu'))
 
@@ -636,7 +637,9 @@ class ALDInvSegProximal(ALDInvSeg):
 
             if self.if_print:
                 vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
-                           save_dir=self.print_args["save_dir"], filename=f"step_{c}_before.png")
+                           save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_before.png")
+                mag_before = torch.abs(x_mod[0])
+                phase_before = torch.angle(x_mod[0])
 
             # x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
             x_mod = self.proximal(x_mod, self.measurement, 2 * alpha * (sigma / self.sigmas[-1]) ** 2,
@@ -644,7 +647,11 @@ class ALDInvSegProximal(ALDInvSeg):
 
             if self.if_print:
                 vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
-                           save_dir=self.print_args["save_dir"], filename=f"step_{c}_after.png")
+                           save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_after.png")
+                mag_diff = torch.abs(x_mod[0]) - mag_before
+                phase_diff = torch.angle(x_mod[0]) - phase_before
+                vis_images(mag_diff, phase_diff, if_save=True, 
+                           save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_diff.png")
 
             ###
             # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
@@ -657,7 +664,8 @@ class ALDInvSegProximal(ALDInvSeg):
             lamda = kwargs["lamda"]
             x_mod = self.proximal(x_mod, self.measurement, lamda)
             ###
-            m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+            # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
+            m_mod = torch.abs(x_mod)
             ###
 
             return m_mod, x_mod
@@ -673,23 +681,27 @@ class ALDInvSegProximal(ALDInvSeg):
         x0 <- argmin_x ||Ax - y0||_2^2
         z0 <- |x0|
         """
-        torch.set_grad_enabled(True)
-        num_steps = kwargs.get("num_steps", 50)
-        lr = kwargs.get("lr", 1e-2)
+        # torch.set_grad_enabled(True)
+        # num_steps = kwargs.get("num_steps", 10)
+        # lr = kwargs.get("lr", 1e-2)
 
-        x_mod = m_mod.to(torch.complex64)  # (B, C, H, W)
-        x_mod.requires_grad = True
-        opt = torch.optim.Adam([x_mod], lr=lr)
-        for i in range(num_steps):
-            s_pred = self.linear_tfm(x_mod)
-            loss = (torch.abs(s_pred - self.measurement) ** 2).sum(dim=(1, 2, 3)).mean()
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
-            print(f"last prox step {i + 1}/{num_steps}: loss {loss.item()}")
+        # x_mod = m_mod.to(torch.complex64)  # (B, C, H, W)
+        # x_mod.requires_grad = True
+        # opt = torch.optim.Adam([x_mod], lr=lr)
+        # for i in range(num_steps):
+        #     s_pred = self.linear_tfm(x_mod)
+        #     loss = (torch.abs(s_pred - self.measurement) ** 2).sum(dim=(1, 2, 3)).mean()
+        #     opt.zero_grad()
+        #     loss.backward()
+        #     opt.step()
+        #     print(f"last prox step {i + 1}/{num_steps}: loss {loss.item()}")
         
-        torch.set_grad_enabled(False)
-        m_mod = torch.abs(x_mod.detach())
+        # torch.set_grad_enabled(False)
+        # m_mod = torch.abs(x_mod.detach())
         
+        # return m_mod
+        assert self.linear_tfm.mask is not None
+        mask = self.linear_tfm.mask.to(m_mod.device)
+        m_mod = k2i_complex(self.measurement + (1 - mask) * i2k_complex(m_mod))
+
         return m_mod
-        

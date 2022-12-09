@@ -66,7 +66,7 @@ if __name__ == '__main__':
     }
     ALD_sampler_params["step_lr"] = args_dict["step_lr"]
     ALD_sampler_params["n_steps_each"] = args_dict["num_steps_each"]
-    ALD_sampler_params["denoise"] = False
+    ALD_sampler_params["denoise"] = True
     # print(ALD_sampler_params)
     sigmas = get_sigmas(config)
     x_mod_shape = (
@@ -100,13 +100,13 @@ if __name__ == '__main__':
     )
 
     eps = 1e-6
-    vis_images(torch.abs(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc_mag.png")
-    vis_images(torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc_phase.png")
+    vis_images(torch.abs(img_complex[0]), torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc.png")
+    # vis_images(torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc_phase.png")
     vis_images(label[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_seg.png")
-    vis_images(torch.log(torch.abs(measurement[0]) + eps), if_save=True, save_dir=args_dict["save_dir"],
+    vis_images(torch.log(torch.abs(measurement[0]) + eps), torch.angle(measurement[0]), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
-    direct_recons = torch.abs(linear_tfm.conj_op(measurement)[0])
-    vis_images(direct_recons, if_save=True, save_dir=args_dict["save_dir"],
+    direct_recons = linear_tfm.conj_op(measurement)[0]
+    vis_images(torch.abs(direct_recons), torch.angle(direct_recons), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_zero_padded_recons_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
 
     filename_dict = {
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     img_out = ALD_sampler(**ALD_call_params)[0]  # (B, C, H, W)
 
     filename = create_filename(filename_dict, suffix=".png")
-    vis_images(img_out[0], if_save=True, save_dir=args_dict["save_dir"], filename=filename)
+    vis_images(torch.abs(img_out[0]), torch.angle(img_out[0]), if_save=True, save_dir=args_dict["save_dir"], filename=filename)
 
     # img_out, measurement: "(1, C, H, W)"
     l2_error = torch.sum(torch.abs(linear_tfm(img_out).detach().cpu() - measurement.detach().cpu()) ** 2,
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     print(f"reconstruction error: {l2_error}")
 
     save_dir = args_dict["save_dir"]
-    torch.save(img.detach().cpu(), os.path.join(save_dir, "original.pt"))
+    torch.save(img_complex.detach().cpu(), os.path.join(save_dir, "original.pt"))
     torch.save(measurement.detach().cpu(), os.path.join(save_dir, "measurement.pt"))
     torch.save(img_out.detach().cpu(), os.path.join(save_dir, "reconstructions.pt"))
 

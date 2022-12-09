@@ -101,7 +101,7 @@ class SingleCoil(Proximal):
         x = F' diag(1 / (1 + alpha * M_{ii})) F (z + alpha F'y)
         """
         alpha = alpha / lamda
-        mask = self.lin_tfm.mask
+        mask = self.lin_tfm.mask.to(z.device)
         x_out = z + alpha * k2i_complex(y)
         x_out = i2k_complex(x_out)
         mask_inv = 1 / (1 + mask * alpha)

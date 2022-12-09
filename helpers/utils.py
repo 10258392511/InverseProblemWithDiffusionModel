@@ -84,7 +84,7 @@ def vis_images(*images, **kwargs):
             img_iter = ptu.to_numpy(img_iter)
         img_iter = img_iter[channel]
         handle = axis.imshow(img_iter, cmap="gray")
-        plt.colorbar(handle)
+        plt.colorbar(handle, ax=axis)
         if titles is not None:
             axis.set_title(titles[i])
 
