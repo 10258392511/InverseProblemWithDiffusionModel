@@ -173,20 +173,22 @@ def data_transform(config, X):
 
 def vis_tensor(X: torch.Tensor, **kwargs):
     """
-    kwargs: figsize
+    kwargs: figsize, if_colorbar
     """
     # X: (B, C, H, W)
     C = X.shape[1]
     assert C > 0
+    if_colorbar = kwargs.get("if_colorbar", True)
     X = X.detach().cpu()
     img_grid = make_grid(X, nrow=X.shape[0])  # (C, H', W')
-    figsize = kwargs.get("figsize", (general_config.figsize_unit, general_config.figsize_unit))
+    figsize = kwargs.get("figsize", (general_config.figsize_unit * X.shape[0], general_config.figsize_unit))
     fig, axis = plt.subplots(figsize=figsize)
     if C == 3:
         axis.imshow(img_grid.permute(1, 2, 0).numpy())
     else:
         handle = axis.imshow(img_grid[0, ...].numpy(), cmap="gray")
-        plt.colorbar(handle, ax=axis)
+        if if_colorbar:
+            plt.colorbar(handle, ax=axis)
 
 
     # plt.show()

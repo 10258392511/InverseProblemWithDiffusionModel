@@ -55,6 +55,24 @@ def SSIM_wrapper(img: np.ndarray, img_orig: np.ndarray) -> float:
     return val
 
 
+def compute_mean_and_std(imgs: np.ndarray):
+    # img: (B, C, H, W)
+    assert imgs.shape[0] > 1
+    if imgs.dtype not in (np.complex, np.complex64):
+        mean_img = np.mean(imgs, axis=0)
+        std_img = np.std(np.abs(imgs), axis=0)
+        # (C, H, W) each
+        return mean_img, std_img
+    else:
+        imgs_mag = np.abs(imgs)
+        imgs_phase = np.angle(imgs)
+        mag_mean, mag_std = compute_mean_and_std(imgs_mag)
+        phase_mean, phase_std = compute_mean_and_std(imgs_phase)
+
+        # (C, H, W) each
+        return mag_mean, phase_mean, mag_std, phase_std
+
+
 REGISTERED_METRICS = {
     "L2": mean_squared_error,
     "L1": MAE,
