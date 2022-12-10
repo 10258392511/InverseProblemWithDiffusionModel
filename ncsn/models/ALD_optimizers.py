@@ -522,7 +522,7 @@ class ALDInvSegProximal(ALDInvSeg):
         # x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
         x_mod = m_mod.to(torch.complex64)
 
-        images = []
+        # images = []
         print_interval = len(sigmas) // 10
 
         ### inserting pt ###
@@ -577,7 +577,8 @@ class ALDInvSegProximal(ALDInvSeg):
 
 
                 if not final_only:
-                    images.append(m_mod.to('cpu'))
+                    # images.append(m_mod.to('cpu'))
+                    pass
 
             ### inserting pt ###
             # m_mod, x_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
@@ -592,12 +593,13 @@ class ALDInvSegProximal(ALDInvSeg):
         ### inserting pt ###
         m_mod = self.last_prox_step(m_mod)
         ####################
-        images.append(m_mod.to('cpu'))
+        # images.append(m_mod.to('cpu'))
 
         if final_only:
             return [m_mod.to('cpu')]
         else:
-            return images
+            # return images
+            return [m_mod.to('cpu')]
 
     def adjust_grad(self, grad, m_mod, **kwargs):
         """
