@@ -24,7 +24,7 @@ from monai.utils import CommonKeys
 
 if __name__ == '__main__':
     """
-    python scripts/acdc_inv_seg_sampling_keep_center_prox.py
+    python scripts/cine_inv_sampling_keep_center_prox.py
     """
     original_stdout = sys.stdout
     original_stderr = sys.stderr
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument("--save_dir", default="../outputs")
     args_dict = vars(parser.parse_args())
 
-    ds_name = "ACDC"
+    ds_name = "CINE64"
     mode = "real-valued"
     device = ptu.DEVICE
 
@@ -53,12 +53,11 @@ if __name__ == '__main__':
     ds = load_data(ds_name, "val")
     data = ds[args_dict["ds_idx"]]
     # (1, H, W), (1, H, W)
-    img, label = data[CommonKeys.IMAGE], data[CommonKeys.LABEL]
+    img = data[0]
     img = img.unsqueeze(0).to(device)  # (1, 1, H, W)
-    label = label.unsqueeze(0).to(device)
 
     scorenet = reload_model("Diffusion", ds_name, mode)
-    seg = reload_model("Seg", ds_name, mode)
+    seg = reload_model("Seg", "ACDC", mode)
     ALD_sampler_params = {
         "n_steps_each": config.sampling.n_steps_each,
         "step_lr": config.sampling.step_lr,
@@ -101,14 +100,12 @@ if __name__ == '__main__':
     )
 
     eps = 1e-6
-    vis_images(torch.abs(img_complex[0]), torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc.png")
-    # vis_images(torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_acdc_phase.png")
-    vis_images(label[0], if_save=True, save_dir=args_dict["save_dir"], filename="original_seg.png")
+    vis_images(torch.abs(img_complex[0]), torch.angle(img_complex[0]), if_save=True, save_dir=args_dict["save_dir"], filename="original_cine64.png")
     vis_images(torch.log(torch.abs(measurement[0]) + eps), torch.angle(measurement[0]), if_save=True, save_dir=args_dict["save_dir"],
-               filename=f"acdc_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
+               filename=f"cine64_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
     direct_recons = linear_tfm.conj_op(measurement)[0]
     vis_images(torch.abs(direct_recons), torch.angle(direct_recons), if_save=True, save_dir=args_dict["save_dir"],
-               filename=f"acdc_zero_padded_recons_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
+               filename=f"cine64_zero_padded_recons_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
 
     filename_dict = {
         "ds_name": ds_name,
@@ -124,7 +121,7 @@ if __name__ == '__main__':
     original_error = torch.sum(torch.abs(linear_tfm(direct_recons.unsqueeze(0)).detach().cpu() - measurement.detach().cpu()) ** 2, dim=(1, 2, 3)).mean().item()
     print(f"original error: {original_error}")
 
-    ALD_call_params = dict(label=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"],
+    ALD_call_params = dict(label=None, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"],
                            lr_scaled=args_dict["lr_scaled"])
     img_out = ALD_sampler(**ALD_call_params)[0]  # (B, C, H, W)
 

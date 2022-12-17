@@ -74,3 +74,9 @@ MAP:
   n_iters: 15000
   complex_inner_n_steps: 20
   lr: 0.001
+
+recons:
+  sigma_dist: geometric
+  sigma_begin: 348   # 348
+  num_classes: 2311  # 2311
+  sigma_end: 0.01

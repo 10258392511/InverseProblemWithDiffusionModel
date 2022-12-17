@@ -287,7 +287,7 @@ def add_phase(imgs: torch.tensor, init_shape=(3, 3)):
     for i in range(B):
         img_iter = imgs[i, ...]  # (C, H, W)
         phase_init_patch = torch.randn(C, *init_shape, device=img_iter.device)
-        resizer = monai_Resize((H, W), mode="bilinear", align_corners=True)
+        resizer = monai_Resize((H, W), mode="bicubic", align_corners=True)
         phase = resizer(phase_init_patch)  # (C, H, W)
         imgs_out[i, ...] = img_iter * torch.exp(1j * phase)
 

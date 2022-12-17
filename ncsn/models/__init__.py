@@ -7,18 +7,33 @@ from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransf
 from InverseProblemWithDiffusionModel.helpers.utils import vis_tensor
 
 
-def get_sigmas(config):
-    if config.model.sigma_dist == 'geometric':
-        sigmas = torch.tensor(
-            np.exp(np.linspace(np.log(config.model.sigma_begin), np.log(config.model.sigma_end),
-                               config.model.num_classes))).float().to(config.device)
-    elif config.model.sigma_dist == 'uniform':
-        sigmas = torch.tensor(
-            np.linspace(config.model.sigma_begin, config.model.sigma_end, config.model.num_classes)
-        ).float().to(config.device)
+def get_sigmas(config, mode="unconditioned"):
+    assert mode in ("unconditioned", "recons")
+    if mode == "recons":
+        if config.recons.sigma_dist == 'geometric':
+            sigmas = torch.tensor(
+                np.exp(np.linspace(np.log(config.recons.sigma_begin), np.log(config.recons.sigma_end),
+                                config.recons.num_classes))).float().to(config.device)
+        elif config.recons.sigma_dist == 'uniform':
+            sigmas = torch.tensor(
+                np.linspace(config.recons.sigma_begin, config.recons.sigma_end, config.recons.num_classes)
+            ).float().to(config.device)
 
+        else:
+            raise NotImplementedError('sigma distribution not supported')
+        
     else:
-        raise NotImplementedError('sigma distribution not supported')
+        if config.model.sigma_dist == 'geometric':
+            sigmas = torch.tensor(
+                np.exp(np.linspace(np.log(config.model.sigma_begin), np.log(config.model.sigma_end),
+                                config.model.num_classes))).float().to(config.device)
+        elif config.model.sigma_dist == 'uniform':
+            sigmas = torch.tensor(
+                np.linspace(config.model.sigma_begin, config.model.sigma_end, config.model.num_classes)
+            ).float().to(config.device)
+
+        else:
+            raise NotImplementedError('sigma distribution not supported')
 
     return sigmas
 

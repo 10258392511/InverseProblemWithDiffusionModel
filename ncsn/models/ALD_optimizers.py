@@ -280,9 +280,6 @@ class ALDInvSeg(ALDOptimizer):
         lh_weight = kwargs["lamda"]
         sigma = kwargs["sigma"]
         grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label=label)
-        # grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        # grad_log_lh_seg_norm = torch.sqrt((torch.abs(grad_log_lh_seg) ** 2).sum(dim=(1, 2, 3), keepdim=True))
-        # grad_log_lh_seg = grad_log_lh_seg / grad_log_lh_seg_norm * grad_norm
         print(f"grad_log_lh_seg: {torch.norm(grad_log_lh_seg)}")  ###
         grad += grad_log_lh_seg * lh_weight / sigma
 
@@ -294,46 +291,10 @@ class ALDInvSeg(ALDOptimizer):
         (2). Inv log-lh step: update x_mod
         (3). Update m_mod
         """
-        # # x_mod = m_mod * torch.exp(1j * torch.angle(x_mod))
-        # x_mod_angle_in = round_sign(x_mod)
-        # if self.last_m_mod_sign is None:
-        #     # m_sign_flip_mask = torch.ones(m_mod.shape).to(m_mod.device)
-        #     self.last_m_mod_sign = torch.ones(m_mod.shape).to(m_mod.device)
-        # # else:
-        # #     m_mod_sign = torch.sign(m_mod)
-        # #     # m_sign_flip_mask = m_mod_sign * self.last_m_mod_sign
-        # #     self.last_m_mod_sign = m_mod_sign
-        #
-        # # pass sign flip from m_mod to x_mod
-        # # x_mod = m_mod * self.last_m_mod_sign * torch.sgn(x_mod)
-        # self.last_m_mod_sign = torch.sign(m_mod)
-        #
-        # x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
-        #
-        # grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
-        # grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
-        # grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
-        # print(f"grad_log_lh_inv: {torch.norm(grad_log_lh_inv)}")  ###
-        # x_mod += grad_log_lh_inv * step_size
-        #
-        # x_mod_angle_out = round_sign(x_mod)
-        # sign_flip_mask = x_mod_angle_in * x_mod_angle_out
-        #
-        # # pass sign flip from x_mod to m_mod
-        # # m_mod = torch.abs(x_mod) * torch.sign(m_mod) * sign_flip_mask
-        # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
-        #
-        # return x_mod, m_mod
-
         m_mod = torch.maximum(m_mod, torch.tensor(0).to(m_mod.device))
         x_mod = m_mod * torch.sgn(x_mod)
         
         grad_norm = torch.sqrt((torch.abs(grad) ** 2).sum(dim=(1, 2, 3), keepdim=True))  # (B, 1, 1, 1)
-        # # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
-        # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.)
-        # grad_log_lh_inv_norm = torch.sqrt((torch.abs(grad_log_lh_inv) ** 2).sum(dim=(1, 2, 3), keepdim=True))
-        # grad_log_lh_inv = grad_log_lh_inv / grad_log_lh_inv_norm * grad_norm
 
         for _ in range(self.config.sampling.complex_inner_n_steps):
             # grad_log_lh_inv = self.linear_tfm.log_lh_grad(x_mod, self.measurement, 1.) / sigma
@@ -520,7 +481,11 @@ class ALDInvSegProximal(ALDInvSeg):
         # x_mod = self.linear_tfm.conj_op(self.measurement)  # (B, C, H, W)
         # x_mod = m_mod * torch.sgn(x_mod)
         # x_mod = m_mod * torch.exp(1j * (torch.rand(m_mod.shape, device=m_mod.device) * 2 - 1) * torch.pi)
-        x_mod = m_mod.to(torch.complex64)
+        # x_mod = m_mod.to(torch.complex64)
+
+
+        x_mod = self.linear_tfm.conj_op(self.measurement)
+        m_mod = torch.abs(x_mod)
 
         # images = []
         print_interval = len(sigmas) // 10
@@ -564,26 +529,37 @@ class ALDInvSegProximal(ALDInvSeg):
                 ####################
 
                 noise = torch.randn_like(m_mod)
-                grad_norm = torch.norm(grad.view(grad.shape[0], -1), dim=-1).mean()
-                noise_norm = torch.norm(noise.view(noise.shape[0], -1), dim=-1).mean()
-
                 m_mod = m_mod + step_size * grad + noise * torch.sqrt(step_size * 2)
 
                 print(f"m_mod, {s + 1}/{n_steps_each}: {(m_mod.max(), m_mod.min())}")  ###
 
-                image_norm = torch.norm(x_mod.view(x_mod.shape[0], -1), dim=-1).mean()
-                snr = torch.sqrt(step_size / 2.) * grad_norm / noise_norm
-                grad_mean_norm = torch.norm(grad.mean(dim=0).view(-1)) ** 2 * sigma ** 2
+                ### inserting pt ###
+                # measurement = self.measurement + sigma * self.linear_tfm(torch.rand_like(x_mod))
+                # print(f"sigma: {sigma}")
+                # x_mod = torch.maximum(m_mod, torch.tensor(0.).to(m_mod.device)) * torch.sgn(x_mod)
+                # if self.if_print:
+                #     vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
+                #             save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_before.png")
+                #     mag_before = torch.abs(x_mod[0])
+                #     phase_before = torch.angle(x_mod[0])
 
+                # # x_mod = self.proximal(x_mod, measurement, lr_scaled, lamda + sigma ** 2)
+                # x_mod = self.proximal(x_mod, measurement, 2 * step_lr * kwargs["lr_scaled"] * (sigma / self.sigmas[-1]) ** 2,
+                #                     kwargs["lamda"] + sigma ** 2)
 
-                if not final_only:
-                    # images.append(m_mod.to('cpu'))
-                    pass
+                # if self.if_print:
+                #     vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
+                #             save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_after.png")
+                #     mag_diff = torch.abs(x_mod[0]) - mag_before
+                #     phase_diff = torch.angle(x_mod[0]) - phase_before
+                #     vis_images(mag_diff, phase_diff, if_save=True, 
+                #             save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_diff.png")
+                
+                # m_mod = torch.abs(x_mod)
 
-            ### inserting pt ###
-            # m_mod, x_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
-            m_mod, _ = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
-            ####################
+                # m_mod, x_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+                m_mod, _ = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+                ####################
 
         if denoise:
             last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
@@ -591,9 +567,10 @@ class ALDInvSegProximal(ALDInvSeg):
             m_mod = m_mod + sigmas[-1] ** 2 * scorenet(m_mod, last_noise)
         
         ### inserting pt ###
+        torch.save(x_mod.detach().cpu(), os.path.join(kwargs.get("save_dir"), "before_last_prox.pt"))
         m_mod = self.last_prox_step(m_mod)
+        # m_mod = self.last_prox_step(x_mod)
         ####################
-        # images.append(m_mod.to('cpu'))
 
         if final_only:
             return [m_mod.to('cpu')]
@@ -605,13 +582,13 @@ class ALDInvSegProximal(ALDInvSeg):
         """
         kwargs: label, seg_lamda, sigma
         """
-        # m_mod: (B, C, H, W)
-        label = kwargs["label"]
-        lamda = kwargs["seg_lamda"]
-        sigma = kwargs["sigma"]
+        # # m_mod: (B, C, H, W)
+        # label = kwargs["label"]
+        # lamda = kwargs["seg_lamda"]
+        # sigma = kwargs["sigma"]
 
-        grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label)  # (B, C, H, W)
-        grad = grad + grad_log_lh_seg / sigma * lamda
+        # grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label)  # (B, C, H, W)
+        # grad = grad + grad_log_lh_seg / sigma * lamda
 
         return grad
 
@@ -619,18 +596,22 @@ class ALDInvSegProximal(ALDInvSeg):
         """
         kwargs:
             sigma: noise std
-            L2Penalty:
+            L2Penalty, SingleCoil:
                 alpha: step-size for the ALD step, unscaled (i.e lr)
-                lamda: hyper-param, for ||Ax - y||^2 / (lamda^2 + sigma^2)
-                       i.e lamda = sigma_data
-                lr_scaled: empirical step-length
+                lamda: hyper-param, for ||Ax - y||^2 / (lamda^2 + sigma^2) * lr_scaled
+                       i.e lamda = sigma_data^2
+                lr_scaled: empirical scaling
             Constrained:
                 lamda: hyper-param, for balancing info retained and not retained
         """
         sigma = kwargs["sigma"]
+        measurement = self.measurement + sigma * self.linear_tfm(torch.randn_like(m_mod) + 1j * torch.randn_like(m_mod))
+        print(f"sigma: {sigma}")
+        # if sigma > 0.1:
+        #     return m_mod, x_mod
         ###
-        # x_mod = m_mod * torch.sgn(x_mod)
         x_mod = torch.abs(m_mod) * torch.sgn(x_mod)
+        # x_mod = torch.maximum(m_mod, torch.tensor(0.).to(m_mod.device)) * torch.sgn(x_mod)
         ###
         if isinstance(self.proximal, L2Penalty) or isinstance(self.proximal, SingleCoil):
             alpha = kwargs["alpha"]
@@ -643,8 +624,11 @@ class ALDInvSegProximal(ALDInvSeg):
                 mag_before = torch.abs(x_mod[0])
                 phase_before = torch.angle(x_mod[0])
 
-            # x_mod = self.proximal(x_mod, self.measurement, lr_scaled, lamda + sigma ** 2)
-            x_mod = self.proximal(x_mod, self.measurement, 2 * alpha * (sigma / self.sigmas[-1]) ** 2,
+            # x_mod = self.proximal(x_mod, measurement, lr_scaled, lamda + sigma ** 2)
+            coeff = 2 * alpha * lr_scaled * (sigma / self.sigmas[-1]) ** 2 / (lamda + sigma ** 2)
+            print(f"coeff: {coeff}")
+            # x_mod = self.proximal(x_mod, measurement, lr_scaled, lamda + sigma ** 2)
+            x_mod = self.proximal(x_mod, measurement, 2 * alpha * lr_scaled * (sigma / self.sigmas[-1]) ** 2,
                                   lamda + sigma ** 2)
 
             if self.if_print:
@@ -658,6 +642,7 @@ class ALDInvSegProximal(ALDInvSeg):
             ###
             # m_mod = torch.abs(x_mod) * torch.sign(m_mod)
             m_mod = torch.abs(x_mod)
+            # m_mod = torch.maximum(m_mod, torch.tensor(0.).to(m_mod.device))
             ###
 
             return m_mod, x_mod
@@ -683,24 +668,6 @@ class ALDInvSegProximal(ALDInvSeg):
         x0 <- argmin_x ||Ax - y0||_2^2
         z0 <- |x0|
         """
-        # torch.set_grad_enabled(True)
-        # num_steps = kwargs.get("num_steps", 10)
-        # lr = kwargs.get("lr", 1e-2)
-
-        # x_mod = m_mod.to(torch.complex64)  # (B, C, H, W)
-        # x_mod.requires_grad = True
-        # opt = torch.optim.Adam([x_mod], lr=lr)
-        # for i in range(num_steps):
-        #     s_pred = self.linear_tfm(x_mod)
-        #     loss = (torch.abs(s_pred - self.measurement) ** 2).sum(dim=(1, 2, 3)).mean()
-        #     opt.zero_grad()
-        #     loss.backward()
-        #     opt.step()
-        #     print(f"last prox step {i + 1}/{num_steps}: loss {loss.item()}")
-        
-        # torch.set_grad_enabled(False)
-        # m_mod = torch.abs(x_mod.detach())
-        
         # return m_mod
         assert self.linear_tfm.mask is not None
         mask = self.linear_tfm.mask.to(m_mod.device)
