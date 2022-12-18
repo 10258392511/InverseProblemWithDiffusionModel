@@ -6,10 +6,12 @@ import os
 import SimpleITK as sitk
 import yaml
 import argparse
+import pickle
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from torchvision.utils import make_grid
 from InverseProblemWithDiffusionModel.configs.general_configs import general_config
+from typing import Union
 
 
 def expand_like(X_in, X_mimic):
@@ -208,3 +210,21 @@ def create_filename(args_dict: dict, suffix: str):
     str_out += suffix
 
     return str_out
+
+
+def load_pickle(filename: str):
+    assert ".pkl" in filename
+    with open(filename, "rb") as rf:
+        data = pickle.load(rf)
+
+    return data
+
+
+def compute_angle(img: Union[torch.Tensor, np.ndarray]):
+    if isinstance(img, torch.Tensor):
+        img = ptu.to_numpy(img)
+    angle = np.angle(img)
+    angle -= angle.min()
+    angle /= angle.max()
+
+    return angle
