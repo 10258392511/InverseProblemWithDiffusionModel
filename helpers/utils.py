@@ -228,3 +228,24 @@ def compute_angle(img: Union[torch.Tensor, np.ndarray]):
     angle /= angle.max()
 
     return angle
+
+
+def normalize(img: torch.Tensor, low_q: float = 0.02, high_q: float = 0.98, return_q=False) -> torch.Tensor:
+    assert 0 <= low_q < high_q <= 1
+    low_val = torch.quantile(img, low_q)
+    high_val = torch.quantile(img, high_q)
+    img_out = (img - low_val) / (high_val - low_val)
+    img_out = torch.clip(img_out, 0., 1.)
+
+    if return_q:
+        return img_out, low_val, high_val
+
+    return img_out
+
+
+def denormalize(img: torch.Tensor, a_min: float, a_max: float) -> torch.Tensor:
+    # assuming img is clean
+    img_min, img_max = img.min(), img.max()
+    img_out = (img - img_min) / (img_max - img_min) + a_min
+
+    return img_out

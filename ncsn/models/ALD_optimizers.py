@@ -5,7 +5,7 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from . import freeze_model, compute_clf_grad, compute_seg_grad
 from .proximal_op import Proximal, L2Penalty, Constrained, SingleCoil
-from InverseProblemWithDiffusionModel.helpers.utils import data_transform, vis_images
+from InverseProblemWithDiffusionModel.helpers.utils import data_transform, vis_images, normalize, denormalize
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import i2k_complex, k2i_complex
 
 
@@ -674,3 +674,156 @@ class ALDInvSegProximal(ALDInvSeg):
         m_mod = k2i_complex(self.measurement + (1 - mask) * i2k_complex(m_mod))
 
         return m_mod
+
+
+class ALDInvSegProximalRealImag(ALDInvSegProximal):
+    # note: enable seg-net in ALDInvSegProximal
+    def __init__(self, *args, **kwargs):
+        super(ALDInvSegProximalRealImag, self).__init__(*args, **kwargs)
+
+    def __call__(self, **kwargs):
+        """
+        kwargs: label, lamda, save_dir, lr_scaled
+        """
+        torch.set_grad_enabled(False)
+        scorenet = self.scorenet
+        sigmas = self.sigmas
+        n_steps_each = self.params["n_steps_each"]
+        step_lr = self.params["step_lr"]
+        denoise = self.params["denoise"]
+        final_only = self.params["final_only"]
+
+        print("sampling...")
+        ### inserting pt ###
+        # m_mod = self.init_x_mod()
+        ####################
+        # m_mod = data_transform(self.config, m_mod)
+
+        x_mod = self.linear_tfm.conj_op(self.measurement)
+        x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+        x_mod_real, low_q_real, high_q_real = normalize(x_mod_real, return_q=True)
+        x_mod_imag, low_q_imag, high_q_imag = normalize(x_mod_imag, return_q=True)
+
+        # images = []
+        print_interval = len(sigmas) // 10
+
+        ### inserting pt ###
+        self.preprocessing_steps(**kwargs)
+        ####################
+
+        for c, sigma in enumerate(sigmas):
+            self.if_print = False
+
+            if c % print_interval == 0:
+                self.if_print = True
+                self.print_args = {
+                    "c": c,
+                    "save_dir": os.path.join(kwargs.get("save_dir"), "phase_images/")
+                }
+
+                print(f"{c + 1}/{len(sigmas)}")
+                vis_images(x_mod_real[0], x_mod_imag[0], if_save=True,
+                           save_dir=os.path.join(kwargs.get("save_dir"), "sampling_snapshots/"),
+                           filename=f"step_{c}_start_time_{self.seg_start_time}_acdc.png")
+
+            labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c  # (B,)
+            labels = labels.long()
+            step_size = step_lr * (sigma / sigmas[-1]) ** 2  # (L_noise,)
+
+            # m_mod = self.init_estimation(x_mod, **kwargs)
+            lh_seg_weight = self.lh_weights[c]
+
+            ### inserting pt ###
+            # x_mod = self.init_estimation(x_mod)
+            ####################
+
+            for s in range(n_steps_each):
+                grad_prior_real = scorenet(x_mod_real, labels)  # (B, C, H, W)
+                grad_prior_imag = scorenet(x_mod_imag, labels)
+
+                ### inserting pt ###
+                # TODO: consider whether using seg-net on real & imag; or mag only
+                grad_real = self.adjust_grad(grad_prior_real, x_mod_real, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                grad_imag = self.adjust_grad(grad_prior_imag, x_mod_imag, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                ####################
+
+                noise_real = torch.randn_like(x_mod_real)
+                x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
+                noise_imag = torch.randn_like(x_mod_imag)
+                x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
+
+                print(f"x_mod_real, {s + 1}/{n_steps_each}: {(x_mod_real.max(), x_mod_real.min())}")  ###
+                print(f"x_mod_imag, {s + 1}/{n_steps_each}: {(x_mod_imag.max(), x_mod_imag.min())}")
+
+                ### inserting pt ###
+                x_mod_real, x_mod_imag = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+                ####################
+
+        if denoise:
+            last_noise = (len(sigmas) - 1) * torch.ones(x_mod.shape[0], device=x_mod.device)
+            last_noise = last_noise.long()
+            x_mod_real = x_mod_real + sigmas[-1] ** 2 * scorenet(x_mod_real, last_noise)
+            x_mod_imag = x_mod_imag + sigmas[-1] ** 2 * scorenet(x_mod_imag, last_noise)
+
+        ### inserting pt ###
+        x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
+        x_mod_imag = denormalize(x_mod_real, low_q_imag, high_q_imag)
+        x_mod = x_mod_real + 1j * x_mod_imag
+        torch.save(x_mod.detach().cpu(), os.path.join(kwargs.get("save_dir"), "before_last_prox.pt"))
+        x_mod = self.last_prox_step(x_mod)
+        ####################
+
+        if final_only:
+            return [x_mod.to('cpu')]
+        else:
+            # return images
+            return [x_mod.to('cpu')]
+
+    def post_processing(self, x_mod_real, x_mod_imag, **kwargs):
+        """
+        kwargs:
+            sigma: noise std
+            L2Penalty, SingleCoil:
+                alpha: step-size for the ALD step, unscaled (i.e lr)
+                lamda: hyper-param, for ||Ax - y||^2 / (lamda^2 + sigma^2) * lr_scaled
+                       i.e lamda = sigma_data^2
+                lr_scaled: empirical scaling
+        """
+        sigma = kwargs["sigma"]
+        measurement = self.measurement
+        print(f"sigma: {sigma}")
+        # denoising by min-max with quantiles
+        x_mod_real, low_q_real, high_q_real = normalize(x_mod_real, return_q=True)
+        x_mod_imag, low_q_imag, high_q_imag = normalize(x_mod_imag, return_q=True)
+        # map to [-1, 1]
+        x_mod_real = denormalize(x_mod_real, -1., 1.)
+        x_mod_imag = denormalize(x_mod_imag, -1., 1.)
+        x_mod = x_mod_real + 1j * x_mod_imag
+
+        alpha = kwargs["alpha"]
+        lamda = kwargs["lamda"]  # not used (sigma_{data} ^ 2)
+        lr_scaled = kwargs["lr_scaled"]
+        if self.if_print:
+            vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
+                       save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_before.png")
+            mag_before = torch.abs(x_mod[0])
+            phase_before = torch.angle(x_mod[0])
+
+        coeff = alpha * lr_scaled
+        print(f"coeff: {coeff}")
+        x_mod = self.proximal(x_mod, measurement, coeff, 1.)
+
+        if self.if_print:
+            vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
+                       save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_after.png")
+            mag_diff = torch.abs(x_mod[0]) - mag_before
+            phase_diff = torch.angle(x_mod[0]) - phase_before
+            vis_images(mag_diff, phase_diff, if_save=True,
+                       save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_diff.png")
+
+        x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+        # recover the original scale
+        x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
+        x_mod_imag = denormalize(x_mod_imag, low_q_imag, high_q_imag)
+
+        return x_mod_real, x_mod_imag
