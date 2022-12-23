@@ -756,7 +756,10 @@ class ALDInvSegProximalRealImag(ALDInvSegProximal):
                 print(f"x_mod_imag, {s + 1}/{n_steps_each}: {(x_mod_imag.max(), x_mod_imag.min())}")
 
                 ### inserting pt ###
-                x_mod_real, x_mod_imag = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
+                x_mod_real, x_mod_imag = self.post_processing(x_mod_real, x_mod_imag, alpha=step_lr, sigma=sigma, **kwargs)
+                print("after prox:")
+                print(f"x_mod_real, {s + 1}/{n_steps_each}: {(x_mod_real.max(), x_mod_real.min())}")  ###
+                print(f"x_mod_imag, {s + 1}/{n_steps_each}: {(x_mod_imag.max(), x_mod_imag.min())}")
                 ####################
 
         if denoise:
@@ -792,12 +795,17 @@ class ALDInvSegProximalRealImag(ALDInvSegProximal):
         sigma = kwargs["sigma"]
         measurement = self.measurement
         print(f"sigma: {sigma}")
-        # denoising by min-max with quantiles
-        x_mod_real, low_q_real, high_q_real = normalize(x_mod_real, return_q=True)
-        x_mod_imag, low_q_imag, high_q_imag = normalize(x_mod_imag, return_q=True)
-        # map to [-1, 1]
-        x_mod_real = denormalize(x_mod_real, -1., 1.)
-        x_mod_imag = denormalize(x_mod_imag, -1., 1.)
+        # # denoising by min-max with quantiles
+        # # TODO: criterion: (based on symmetry)
+        # if_normalize = False
+        # if x_mod_real.max() <= 2. and x_mod_real.min() >= -1:
+        #     if_normalize = True
+        #     x_mod_real, low_q_real, high_q_real = normalize(x_mod_real, return_q=True)
+        #     x_mod_imag, low_q_imag, high_q_imag = normalize(x_mod_imag, return_q=True)
+        #     # map to [-1, 1]
+        #     x_mod_real = denormalize(x_mod_real, -1., 1.)
+        #     x_mod_imag = denormalize(x_mod_imag, -1., 1.)
+        
         x_mod = x_mod_real + 1j * x_mod_imag
 
         alpha = kwargs["alpha"]
@@ -822,8 +830,9 @@ class ALDInvSegProximalRealImag(ALDInvSegProximal):
                        save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_diff.png")
 
         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
-        # recover the original scale
-        x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
-        x_mod_imag = denormalize(x_mod_imag, low_q_imag, high_q_imag)
+        # # recover the original scale
+        # if if_normalize:
+        #     x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
+        #     x_mod_imag = denormalize(x_mod_imag, low_q_imag, high_q_imag)
 
         return x_mod_real, x_mod_imag
