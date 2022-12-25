@@ -25,6 +25,7 @@ if __name__ == '__main__':
     # parser.add_argument("--task_name", required=True, choices=list(TASK_NAME_TO_MODEL_CTOR.keys()))
     parser.add_argument("--mode", required=True, choices=["real-valued", "mag", "complex"])
     # parser.add_argument("--if_conditioned", action="store_true")
+    parser.add_argument("--num_steps_each", type=int, default=3)
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--save_dir", default="../outputs")
     args_dict = vars(parser.parse_args())
@@ -34,7 +35,7 @@ if __name__ == '__main__':
     config = load_config(args_dict["ds_name"], args_dict["mode"], device)
     scorenet = reload_model("Diffusion", args_dict["ds_name"], args_dict["mode"])
     ALD_sampler_params = {
-        "n_steps_each": config.sampling.n_steps_each,
+        "n_steps_each": args_dict["num_steps_each"],
         "step_lr": config.sampling.step_lr,
         "final_only": config.sampling.final_only,
         "denoise": config.sampling.denoise

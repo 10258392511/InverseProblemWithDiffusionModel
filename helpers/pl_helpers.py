@@ -96,7 +96,7 @@ class TrainScoreModelDiscrete(pl.LightningModule):
     def __init__(self, score_model, ds_dict, params):
         """
         ds_dict: keys: train, val
-        params: batch_size, lr, num_workers, data_mode
+        params: batch_size, lr, num_workers, data_mode, if_centering
 
         Data normalization goes into "transforms" when loading the data
         """
@@ -119,6 +119,9 @@ class TrainScoreModelDiscrete(pl.LightningModule):
         else:
             X = batch
         # print(f"{X.shape}, {X.dtype}")
+        if self.params.get("if_centering", False):
+            X = 2 * X - 1
+        # print(f"X: {X.shape}, {X.min()}, {X.max()}")
         # X: (B, C, H, W)
         X = collate_batch(X, self.params["data_mode"])
         loss = self.loss_fn(self.model, X, self.sigmas)
@@ -137,6 +140,8 @@ class TrainScoreModelDiscrete(pl.LightningModule):
             X = batch
 
         # X: (B, C, H, W)
+        if self.params.get("if_centering", False):
+            X = 2 * X - 1
         X = collate_batch(X, self.params["data_mode"])
         loss = self.loss_fn(self.model, X, self.sigmas)
 
@@ -243,7 +248,7 @@ class TrainSeg(pl.LightningModule):
     def __init__(self, model, ds_dict, params, config):
         """
        ds_dict: keys: train, val
-       params: batch_size, lr, num_workers, num_cls, data_mode
+       params: batch_size, lr, num_workers, num_cls, data_mode, if_centering
        """
         super(TrainSeg, self).__init__()
         self.params = params
@@ -263,6 +268,9 @@ class TrainSeg(pl.LightningModule):
         # (B, C, H, W)
         img, label = batch[CommonKeys.IMAGE], batch[CommonKeys.LABEL]
         # print(f"img: {img.shape}, label: {label.shape}")
+        if self.params.get("if_centering", False):
+            img = 2 * img - 1
+        # print(f"img: {img.shape}, {img.min()}, {img.max()}")
         img = collate_batch(img, self.params["data_mode"])
         loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
         out_dict = {"loss": loss}
@@ -272,6 +280,8 @@ class TrainSeg(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         img, label = batch[CommonKeys.IMAGE], batch[CommonKeys.LABEL]
+        if self.params.get("if_centering", False):
+            img = 2 * img - 1
         img = collate_batch(img, self.params["data_mode"])
         loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
         self.log("val_loss", loss, on_epoch=True)

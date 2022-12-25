@@ -23,6 +23,7 @@ if __name__ == '__main__':
     parser.add_argument("--task_name", required=True)
     parser.add_argument("--mode", required=True)
     parser.add_argument("--num_workers", type=int, default=0)
+    parser.add_argument("--if_centering", action="store_true")
     args = vars(parser.parse_args())
     ds_name = args["ds_name"]
     task_name = args["task_name"]

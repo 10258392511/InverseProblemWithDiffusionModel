@@ -130,6 +130,7 @@ class ALDOptimizer(abc.ABC):
         pass
 
     def init_x_mod(self):
+        # x_mod = 2 * torch.rand(*self.x_mod_shape).to(self.device) - 1
         x_mod = torch.rand(*self.x_mod_shape).to(self.device)
 
         return x_mod

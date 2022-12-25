@@ -66,7 +66,7 @@ def load_data(ds_name, mode="train", **kwargs):
     return ds_out
 
 
-def load_mnist(root_dir, mode="train"):
+def load_mnist(root_dir, mode="train", **kwargs):
     assert mode in ["train", "val", "test"]
 
     transforms = [
@@ -97,7 +97,7 @@ def load_cifar10(root_dir, mode="train"):
 
 
 def load_cine(root_dir, mode="train", img_key="imgs", flatten=True,
-              resize_shape: Union[int, None] = None):
+              resize_shape: Union[int, None] = None, **kwargs):
     assert mode in ["train", "val", "test"]
     if mode == "val":
         mode = "test"
