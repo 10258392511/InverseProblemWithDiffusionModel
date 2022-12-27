@@ -535,30 +535,6 @@ class ALDInvSegProximal(ALDInvSeg):
                 print(f"m_mod, {s + 1}/{n_steps_each}: {(m_mod.max(), m_mod.min())}")  ###
 
                 ### inserting pt ###
-                # measurement = self.measurement + sigma * self.linear_tfm(torch.rand_like(x_mod))
-                # print(f"sigma: {sigma}")
-                # x_mod = torch.maximum(m_mod, torch.tensor(0.).to(m_mod.device)) * torch.sgn(x_mod)
-                # if self.if_print:
-                #     vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
-                #             save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_before.png")
-                #     mag_before = torch.abs(x_mod[0])
-                #     phase_before = torch.angle(x_mod[0])
-
-                # # x_mod = self.proximal(x_mod, measurement, lr_scaled, lamda + sigma ** 2)
-                # x_mod = self.proximal(x_mod, measurement, 2 * step_lr * kwargs["lr_scaled"] * (sigma / self.sigmas[-1]) ** 2,
-                #                     kwargs["lamda"] + sigma ** 2)
-
-                # if self.if_print:
-                #     vis_images(torch.abs(x_mod[0]), torch.angle(x_mod[0]), if_save=True,
-                #             save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_after.png")
-                #     mag_diff = torch.abs(x_mod[0]) - mag_before
-                #     phase_diff = torch.angle(x_mod[0]) - phase_before
-                #     vis_images(mag_diff, phase_diff, if_save=True, 
-                #             save_dir=self.print_args["save_dir"], filename=f"step_{self.print_args['c']}_diff.png")
-                
-                # m_mod = torch.abs(x_mod)
-
-                # m_mod, x_mod = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
                 m_mod, _ = self.post_processing(m_mod, x_mod, alpha=step_lr, sigma=sigma, **kwargs)
                 ####################
 
@@ -583,13 +559,14 @@ class ALDInvSegProximal(ALDInvSeg):
         """
         kwargs: label, seg_lamda, sigma
         """
-        # # m_mod: (B, C, H, W)
-        # label = kwargs["label"]
-        # lamda = kwargs["seg_lamda"]
-        # sigma = kwargs["sigma"]
+        # m_mod: (B, C, H, W)
+        label = kwargs["label"]
+        lamda = kwargs["seg_lamda"]
+        sigma = kwargs["sigma"]
 
-        # grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label)  # (B, C, H, W)
+        grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label)  # (B, C, H, W)
         # grad = grad + grad_log_lh_seg / sigma * lamda
+        grad = grad + grad_log_lh_seg  * lamda
 
         return grad
 
@@ -770,8 +747,8 @@ class ALDInvSegProximalRealImag(ALDInvSegProximal):
             x_mod_imag = x_mod_imag + sigmas[-1] ** 2 * scorenet(x_mod_imag, last_noise)
 
         ### inserting pt ###
-        x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
-        x_mod_imag = denormalize(x_mod_real, low_q_imag, high_q_imag)
+        # x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
+        # x_mod_imag = denormalize(x_mod_imag, low_q_imag, high_q_imag)
         x_mod = x_mod_real + 1j * x_mod_imag
         torch.save(x_mod.detach().cpu(), os.path.join(kwargs.get("save_dir"), "before_last_prox.pt"))
         x_mod = self.last_prox_step(x_mod)
