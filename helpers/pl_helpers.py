@@ -124,7 +124,12 @@ class TrainScoreModelDiscrete(pl.LightningModule):
         # print(f"X: {X.shape}, {X.min()}, {X.max()}")
         # X: (B, C, H, W)
         X = collate_batch(X, self.params["data_mode"])
-        loss = self.loss_fn(self.model, X, self.sigmas)
+        if isinstance(X, list):
+            # real-imag
+            X_real, X_imag = X
+            loss = 0.5 * (self.loss_fn(self.model, X_real, self.sigmas) + self.loss_fn(self.model, X_imag, self.sigmas))
+        else:
+            loss = self.loss_fn(self.model, X, self.sigmas)
 
         out_dict = {"loss": loss}
         self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
@@ -143,7 +148,12 @@ class TrainScoreModelDiscrete(pl.LightningModule):
         if self.params.get("if_centering", False):
             X = 2 * X - 1
         X = collate_batch(X, self.params["data_mode"])
-        loss = self.loss_fn(self.model, X, self.sigmas)
+        if isinstance(X, list):
+            # real-imag
+            X_real, X_imag = X
+            loss = 0.5 * (self.loss_fn(self.model, X_real, self.sigmas) + self.loss_fn(self.model, X_imag, self.sigmas))
+        else:
+            loss = self.loss_fn(self.model, X, self.sigmas)
 
         self.log("val_loss", loss, prog_bar=True, on_epoch=True)
 

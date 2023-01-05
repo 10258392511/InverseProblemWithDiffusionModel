@@ -242,7 +242,7 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
 
 
 def load_config(ds_name, mode="real-valued", device=None):
-    assert mode in ["real-valued", "mag", "complex"]
+    assert mode in ["real-valued", "mag", "complex", "real-imag"]
     assert ds_name in REGISTERED_DATA_CONFIG_FILENAME.keys()
     if device is None:
         device = ptu.DEVICE
@@ -265,7 +265,7 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
     """
     To be used in LightningModule
     """
-    assert mode in ["real-valued", "mag", "complex"]
+    assert mode in ["real-valued", "mag", "complex", "real-imag"]
     # batch: (B, 1, H, W)
     assert batch.shape[1] == 1
     if mode == "real-valued":
@@ -276,6 +276,14 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
 
     elif mode == "complex":
         batch = torch.cat([batch, torch.zeros_like(batch)], dim=1)  # (B, 2, H, W)
+    
+    elif mode == "real-imag":
+        # u = x + 1j * y: u: [-1, 1] -> x, y
+        phi = (torch.rand(batch.shape[0]) * 2 - 1) * torch.pi  # (B,)
+        phi = phi.to(batch.device).reshape(batch.shape[0], 1, 1, 1)  # (B, 1, 1, 1)
+        batch = batch * torch.exp(1j * phi)
+        batch_real, batch_imag = torch.real(batch), torch.imag(batch)
+        batch = [batch_real, batch_imag]
 
     return batch
 

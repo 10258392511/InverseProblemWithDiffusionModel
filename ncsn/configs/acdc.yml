@@ -1,5 +1,5 @@
 training:
-  batch_size: 6  # 32
+  batch_size: 3  # 32
   seg_batch_size: 64
   n_epochs: 400  # 200
   seg_epochs: 2000
