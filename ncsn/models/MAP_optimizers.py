@@ -1,13 +1,45 @@
 import torch
+import torch.nn as nn
 import abc
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from torch.utils.tensorboard import SummaryWriter
-from typing import Union
+from monai.data import MetaTensor
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
+from InverseProblemWithDiffusionModel.ncsn.regularizers import AbstractRegularizer
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from tqdm import trange
+from typing import Any, Union
 
+
+class MAPModel(nn.Module):
+    def __init__(self, S: Union[torch.Tensor, MetaTensor], lin_tfm: LinearTransform, reg: Union[Any, AbstractRegularizer],
+                 reg_weight: float):
+        """
+        S: measurement, (B, C', H', W')
+        """
+        super(MAPModel, self).__init__()
+        self.S = S.to(ptu.DEVICE)
+        self.lin_tfm = lin_tfm
+        X_conj = self.lin_tfm.conj_op(self.S)
+        # X_conj = torch.zeros_like(X_conj)
+        self.X = nn.Parameter(X_conj, requires_grad=True)
+        self.reg = reg
+        self.reg_weight = reg_weight
+
+    def forward(self, *args, **kwargs):
+        # X: img; S: measurement
+        AX = self.lin_tfm(self.X)  # (B, C', H', W')
+        data_loss = (torch.abs(AX - self.S) ** 2).sum() / 2
+        reg_loss = self.reg(self.X, *args, **kwargs).squeeze()
+        loss = data_loss + self.reg_weight * reg_loss
+
+        return data_loss, reg_loss, loss
+
+    def get_reconstruction(self):
+
+        return self.X.detach().cpu()
+    
 
 class MAPOptimizer(object):
     def __init__(self, x_init: torch.Tensor, measurement: torch.Tensor, scorenet, linear_tfm: LinearTransform, lamda,

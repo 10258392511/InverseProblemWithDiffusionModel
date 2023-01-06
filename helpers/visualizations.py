@@ -25,6 +25,9 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
                 r"$\alpha$ = " + f"{args_dict['step_lr']}, " + \
                 r"$\sigma_{data}^2 = $" + f"{args_dict['lamda']}"
 
+        title = r"$\lambda = $" + f"{args_dict['lr_scaled']}, " + \
+                r"$\alpha$ = " + f"{args_dict['step_lr']}, "
+
         return title
 
     img_orig = torch.load(os.path.join(root_dir, orig_filename))  # (1, C, H, W)
@@ -194,7 +197,7 @@ def metric_vs_hyperparam(root_dirs: list, metrics: list, params: list, defaults:
             idx_arg_sort = np.argsort(xx)
             xx = xx[idx_arg_sort]
             yy = yy[idx_arg_sort]
-            # print(f"{(i, j)}:\n{xx}\n{yy}")
+            print(f"{(i, j)}:\n{xx}\n{yy}")
             axis.plot(xx, yy)
             if param_name_iter in if_logscale_x:
                 axis.set_xscale("log")

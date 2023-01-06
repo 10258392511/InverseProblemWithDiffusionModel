@@ -11,6 +11,7 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from torchvision.utils import make_grid
 from InverseProblemWithDiffusionModel.configs.general_configs import general_config
+from datetime import datetime
 from typing import Union
 
 
@@ -249,3 +250,9 @@ def denormalize(img: torch.Tensor, a_min: float, a_max: float) -> torch.Tensor:
     img_out = (img - img_min) / (img_max - img_min) + a_min
 
     return img_out
+
+
+def get_timestamp():
+    time_stamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
+
+    return time_stamp

@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import pytorch_lightning as pl
 import os
 
@@ -9,6 +10,9 @@ from InverseProblemWithDiffusionModel.ncsn.losses.seg_loss import seg_loss_with_
 from InverseProblemWithDiffusionModel.configs.general_configs import general_config
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.helpers.utils import get_optimizer
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
+from InverseProblemWithDiffusionModel.ncsn.regularizers import AbstractRegularizer
+from InverseProblemWithDiffusionModel.ncsn.models.MAP_optimizers import MAPModel
 from torch.utils.data import DataLoader
 from monai.data import DataLoader as m_DataLoader
 from torchmetrics import MetricCollection, Accuracy
@@ -21,7 +25,7 @@ from monai.optimizers import Novograd
 from monai.transforms import Compose, AsDiscrete
 from monai.utils import CommonKeys
 from datetime import datetime
-from typing import List, Any
+from typing import List, Any, Union
 
 
 class TrainScoreModel(pl.LightningModule):
@@ -377,3 +381,46 @@ def get_score_model_trainer(callbacks: List[pl.Callback], mode="train", log_dir=
         return trainer, os.path.join(log_dir, log_name, time_stamp)
 
     return trainer
+
+
+class TrainMAPModel(pl.LightningModule):
+    def __init__(self, measurements: torch.Tensor, lin_tfm: LinearTransform, reg: Union[Any, AbstractRegularizer],
+                 reg_weight: float, params):
+        """
+        measurements: (B, C', H', W')
+        params: num_workers, lr
+        """
+        super(TrainMAPModel, self).__init__()
+        self.params = params
+        self.model = MAPModel(measurements, lin_tfm, reg, reg_weight)
+        self.batch_size = measurements.shape[0]
+
+    def training_step(self, batch, batch_idx):
+        data_loss, reg_loss, loss = self.model()
+        log_dict = {
+            "data_loss": data_loss,
+            "reg_loss": reg_loss,
+            "loss": loss
+        }
+        self.log_dict(log_dict, prog_bar=True, on_step=True)
+
+        return {"loss": loss}
+
+    # def validation_step(self, batch, batch_idx):
+    #     pass
+
+    def train_dataloader(self):
+        return m_DataLoader(self.model.S, batch_size=self.batch_size, num_workers=self.params["num_workers"],
+                            shuffle=False)
+
+    # def val_dataloader(self):
+    #     return m_DataLoader(self.model.S, batch_size=self.batch_size, num_workers=self.params["num_workers"],
+    #                         shuffle=False)
+
+    def configure_optimizers(self):
+        opt = torch.optim.Adam(self.model.parameters(), lr=self.params["lr"])
+        opt_config = {
+            "optimizer": opt
+        }
+
+        return opt_config
