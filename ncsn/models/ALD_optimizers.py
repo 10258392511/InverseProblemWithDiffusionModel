@@ -721,8 +721,10 @@ class ALDInvSegProximalRealImag(ALDInvSegProximal):
 
                 ### inserting pt ###
                 # TODO: consider whether using seg-net on real & imag; or mag only
-                grad_real = self.adjust_grad(grad_prior_real, x_mod_real, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
-                grad_imag = self.adjust_grad(grad_prior_imag, x_mod_imag, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                # grad_real = self.adjust_grad(grad_prior_real, x_mod_real, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                # grad_imag = self.adjust_grad(grad_prior_imag, x_mod_imag, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                grad_real = grad_prior_real
+                grad_imag = grad_prior_imag
                 ####################
 
                 noise_real = torch.randn_like(x_mod_real)

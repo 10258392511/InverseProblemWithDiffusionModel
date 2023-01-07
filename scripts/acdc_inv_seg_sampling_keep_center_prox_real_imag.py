@@ -50,7 +50,7 @@ if __name__ == '__main__':
     device = ptu.DEVICE
 
     config = load_config(ds_name, mode, device)
-    ds = load_data(ds_name, "val")
+    ds = load_data(ds_name, "val", if_aug=False)
     data = ds[args_dict["ds_idx"]]
     # (1, H, W), (1, H, W)
     img, label = data[CommonKeys.IMAGE], data[CommonKeys.LABEL]
@@ -81,8 +81,8 @@ if __name__ == '__main__':
     proximal_constr = get_proximal(args_dict["proximal_type"])
     proximal = proximal_constr(linear_tfm)
 
-    img_complex = add_phase(img, init_shape=(5, 5))  # (1, 1, H, W)
-    measurement = linear_tfm(img.to(torch.complex64))  # (1, 1, H, W)
+    img_complex = add_phase(img, init_shape=(5, 5), seed=args_dict["seed"])  # (1, 1, H, W)
+    measurement = linear_tfm(img_complex.to(torch.complex64))  # (1, 1, H, W)
     measurement = measurement.repeat(args_dict["num_samples"], 1, 1, 1)
 
     ALD_sampler = ALDInvSegProximalRealImag(

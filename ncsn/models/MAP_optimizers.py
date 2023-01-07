@@ -4,7 +4,7 @@ import abc
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from torch.utils.tensorboard import SummaryWriter
-from monai.data import MetaTensor
+# from monai.data import MetaTensor
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
 from InverseProblemWithDiffusionModel.ncsn.regularizers import AbstractRegularizer
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
@@ -13,7 +13,7 @@ from typing import Any, Union
 
 
 class MAPModel(nn.Module):
-    def __init__(self, S: Union[torch.Tensor, MetaTensor], lin_tfm: LinearTransform, reg: Union[Any, AbstractRegularizer],
+    def __init__(self, S: Union[torch.Tensor, Any], lin_tfm: LinearTransform, reg: Union[Any, AbstractRegularizer],
                  reg_weight: float):
         """
         S: measurement, (B, C', H', W')
