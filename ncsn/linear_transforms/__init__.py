@@ -22,7 +22,7 @@ class LinearTransform(abc.ABC):
         """
         return X
 
-    def log_lh_grad(self, X: torch.Tensor, S: torch.Tensor, lamda: float) -> torch.Tensor:
+    def log_lh_grad(self, X: torch.Tensor, S: torch.Tensor, lamda: float = 1.) -> torch.Tensor:
         """
         grad = -lamda * A'(Ax - s)
         """

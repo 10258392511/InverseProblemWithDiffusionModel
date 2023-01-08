@@ -1,6 +1,8 @@
+import numpy as np
 import torch
 import warnings
 
+from scipy.spatial import distance_matrix
 from . import i2k_complex, k2i_complex, LinearTransform
 from .masking import SkipLines
 
@@ -79,3 +81,81 @@ class RandomUndersamplingFourier(LinearTransform):
         X_out = k2i_complex(S_retrained_mixture + S_unretrained)
 
         return X_out
+
+
+class SENSE(LinearTransform):
+    def __init__(self, sens_type, num_sens, R, center_lines_frac, in_shape, seed):
+        assert sens_type in ["exp"]
+        self.random_under_fourier = RandomUndersamplingFourier(R, center_lines_frac, in_shape, seed)
+        sens_maps = []
+        for i in range(num_sens):
+            seed = self.random_under_fourier.seed
+            if seed is not None:
+                seed += i
+            sens_maps.append(self._generate_sens_map(sens_type, seed))
+
+        sens_maps = torch.stack(sens_maps, dim=0)  # [(H, W)...] -> (num_sens, H, W)
+        normalize_fractor = (torch.abs(sens_maps) ** 2).sum(dim=0)  # (num_sens, H, W) -> (H, W)
+        normalize_fractor = torch.sqrt(normalize_fractor)  # (H, W)
+        self.sens_maps = sens_maps / normalize_fractor  # (num_sens, H, W)
+
+        energy = (torch.abs(self.sens_maps) ** 2).sum(dim=0)
+        assert torch.allclose(energy,  torch.ones_like(energy))
+
+    def _generate_sens_map(self, sens_type, seed=0, **kwargs):
+        sens_map = torch.ones(self.random_under_fourier.in_shape)
+        if sens_type == "exp":
+            # kwargs: l, anchor: np.ndarray
+            # exp(- ||x - x0||^2 / (2 * l))
+            anchor = kwargs.get("anchor", None)
+
+            if anchor is None:
+                H, W = self.random_under_fourier.in_shape[-2:]
+                np.random.seed(seed)
+                anchor_h, anchor_w = np.random.choice(H), np.random.choice(W)
+                anchor = np.array([anchor_h, anchor_w])[None, :]  # (1, 2)
+                ww, hh = np.mgrid[0:W, 0:H]  # (H, W) each
+                coords = np.stack([ww.flatten(), hh.flatten()], axis=1)  # (HW, 2)
+                dist_mat = distance_matrix(coords, anchor, p=2)  # (HW, 1), not squared
+                dist_mat_tensor = torch.tensor(dist_mat.reshape((H, W)))  # (H, W)
+                l = kwargs.get("l", dist_mat.max() / 2)
+                sens_map = torch.exp(- dist_mat_tensor / (2 * l))
+
+        return sens_map
+
+    def __call__(self, X: torch.Tensor) -> torch.Tensor:
+        # X: (B, C, H, W)
+        S = []
+        sens_maps = self.sens_maps.to(X.device)
+        for i in range(sens_maps.shape[0]):
+            sens_map_iter = sens_maps[0]  # (H, W)
+            S.append(self.random_under_fourier(sens_map_iter * X))
+
+        S = torch.stack(S, dim=0)  # [(B, C, H, W)...] -> (num_sens, B, C, H, W)
+
+        return S
+
+    def conj_op(self, S: torch.Tensor) -> torch.Tensor:
+        # S: (num_sens, B, C, H, W)
+        sens_maps = self.sens_maps.to(S.device)
+        X_out = torch.zeros(S.shape[1:], dtype=S.dtype).to(S.device)  # (B, C, H, W)
+        for i in range(S.shape[0]):
+            X_out += sens_maps[i].conj() * self.random_under_fourier.conj_op(S[i])
+
+        return X_out
+
+    def SSOS(self, S: torch.Tensor) -> torch.Tensor:
+        # S: (num_sens, B, C, H, W)
+        X_out = torch.zeros(S.shape[1:], dtype=torch.float32).to(S.device)  # (B, C, H, W)
+        for i in range(S.shape[0]):
+            X_out += torch.abs(self.random_under_fourier.conj_op(S[i])) ** 2
+
+        X_out = torch.sqrt(X_out)
+
+        return X_out
+
+    def projection(self, X: torch.Tensor, S: torch.Tensor, lamda: float) -> torch.Tensor:
+        warnings.warn("Not implemented!")
+        X_proj = super(SENSE, self).projection(X, S)
+
+        return X_proj
