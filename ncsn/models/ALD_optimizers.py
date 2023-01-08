@@ -753,7 +753,7 @@ class ALDInvSegProximalRealImag(ALDInvSegProximal):
         # x_mod_imag = denormalize(x_mod_imag, low_q_imag, high_q_imag)
         x_mod = x_mod_real + 1j * x_mod_imag
         torch.save(x_mod.detach().cpu(), os.path.join(kwargs.get("save_dir"), "before_last_prox.pt"))
-        x_mod = self.last_prox_step(x_mod)
+        # x_mod = self.last_prox_step(x_mod)
         ####################
 
         if final_only:

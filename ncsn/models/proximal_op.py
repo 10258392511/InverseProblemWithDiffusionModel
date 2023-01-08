@@ -17,7 +17,7 @@ class Proximal(object):
 
 
 class L2Penalty(Proximal):
-    def __call__(self, z, y, alpha, lamda, num_steps=10):
+    def __call__(self, z, y, alpha, lamda, num_steps=5):
         """
         x <- argmin_x 1 / 2 * norm(x - z)^2 + 1 / 2 * alpha / lamda * norm(Ax - y)
 
@@ -35,14 +35,15 @@ class L2Penalty(Proximal):
         # x_sol = torch.randn_like(z)
         x_sol.requires_grad = True
         # opt = torch.optim.LBFGS([x_sol])
-        opt = torch.optim.Adam([x_sol], lr=5e-1)
+        # opt = torch.optim.Adam([x_sol], lr=5e-2)
+        opt = torch.optim.SGD([x_sol], lr=5e-2)
 
         for _ in range(num_steps):
             def closure():
                 opt.zero_grad()
                 loss_val = loss(x_sol)
                 loss_val.backward()
-                # print(loss_val.item())
+                print(loss_val.item())
 
                 return loss_val
             opt.step(closure)
