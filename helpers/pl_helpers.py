@@ -286,7 +286,13 @@ class TrainSeg(pl.LightningModule):
             img = 2 * img - 1
         # print(f"img: {img.shape}, {img.min()}, {img.max()}")
         img = collate_batch(img, self.params["data_mode"])
-        loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
+        if isinstance(img, list):
+            img_real, img_imag = img
+            loss_real, _ = self.loss_fn(self.model, img_real, label, self.sigmas)
+            loss_imag, _ = self.loss_fn(self.model, img_imag, label, self.sigmas)
+            loss = 0.5 * (loss_real + loss_imag)
+        else:
+            loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
         out_dict = {"loss": loss}
         self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
 
@@ -297,7 +303,14 @@ class TrainSeg(pl.LightningModule):
         if self.params.get("if_centering", False):
             img = 2 * img - 1
         img = collate_batch(img, self.params["data_mode"])
-        loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
+        if isinstance(img, list):
+            img_real, img_imag = img
+            loss_real, pred_real = self.loss_fn(self.model, img_real, label, self.sigmas)
+            loss_imag, pred_imag = self.loss_fn(self.model, img_imag, label, self.sigmas)
+            loss = 0.5 * (loss_real + loss_imag)
+            pred = torch.cat([pred_real, pred_imag], dim=0)
+        else:
+            loss, pred = self.loss_fn(self.model, img, label, self.sigmas)
         self.log("val_loss", loss, on_epoch=True)
         # label: (B, 1, H, W); pred: (B, C, H, W)
         label = [self.post_processing_label(item) for item in decollate_batch(label)]

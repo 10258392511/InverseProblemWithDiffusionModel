@@ -182,6 +182,7 @@ class ValVisualizationSeg(pl.Callback):
     def __init__(self):
         super(ValVisualizationSeg, self).__init__()
         self.num_epochs = 0
+        self.idx_real_img = 0
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", device=None) -> None:
         if device is None:
@@ -193,6 +194,11 @@ class ValVisualizationSeg(pl.Callback):
         img, label = data_dict[CommonKeys.IMAGE], data_dict[CommonKeys.LABEL]
         img = img.unsqueeze(0)  # (1, 1, H, W)
         img_in = collate_batch(img, pl_module.params["data_mode"])  # (1, C, H, W)
+        if isinstance(img_in, list):
+            img_in_len = len(img_in)
+            img_in = img_in[self.idx_real_img]
+            self.idx_real_img = (self.idx_real_img + 1) % img_in_len
+            print(self.idx_real_img)
         pred = pl_module.model(img_in.to(device)).squeeze(0)  # (1, 2, H, W) -> (2, H, W)
         pred = pred.argmax(dim=0, keepdim=True)
         trainer.logger.experiment.add_image("img", img[0], self.num_epochs)
