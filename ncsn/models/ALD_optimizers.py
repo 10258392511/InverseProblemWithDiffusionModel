@@ -249,7 +249,7 @@ class ALDInvSegProximalRealImag(ALDOptimizer):
         # x_mod_real = denormalize(x_mod_real, low_q_real, high_q_real)
         # x_mod_imag = denormalize(x_mod_imag, low_q_imag, high_q_imag)
         x_mod = x_mod_real + 1j * x_mod_imag
-        torch.save(x_mod.detach().cpu(), os.path.join(kwargs.get("save_dir"), "before_last_prox.pt"))
+        # torch.save(x_mod.detach().cpu(), os.path.join(kwargs.get("save_dir"), "before_last_prox.pt"))
         ####################
 
         if final_only:

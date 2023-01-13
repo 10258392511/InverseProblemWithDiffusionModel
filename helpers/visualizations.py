@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 import os
@@ -12,21 +13,42 @@ from InverseProblemWithDiffusionModel.helpers.metrics import REGISTERED_METRICS,
 FIGSIZE_UNIT = 3.6
 
 
+def add_text(axis: plt.Axes, text_dict: dict):
+    df = pd.DataFrame(text_dict)
+    axis.table(cellText=np.round(df.values.T, decimals=3), rowLabels=df.columns, loc="center", cellLoc="center")
+    axis.set_axis_off()
+
+
+def add_correlation_table(axis: plt.Axes, mag_std: np.ndarray, phase_std: np.ndarray, abs_error: np.ndarray, abs_mag_error: np.ndarray):
+    #               mag std | phase std
+    # abs error
+    # abs mag error
+    row_texts = ["abs error", "abs mag error"]
+    col_texts = ["mag std", "phase std"]
+    corr_vals = np.zeros((2, 2))
+    for i, x_iter in enumerate([abs_error, abs_mag_error]):
+        for j, y_iter in enumerate([mag_std, phase_std]):
+            data_iter = np.stack([x_iter.flatten(), y_iter.flatten()], axis=0)  # (2, N)
+            corr_val = np.corrcoef(data_iter)[0, 1]
+            # if not np.isnan(corr_val):
+            corr_vals[i, j] = corr_val
+
+    axis.table(cellText=corr_vals.round(decimals=4), rowLabels=row_texts, colLabels=col_texts,
+               loc="center", cellLoc="center")
+    axis.set_axis_off()
+
+
 def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_filename="reconstructions.pt",
                             args_filename="args_dict.pkl", *args, **kwargs):
     """
     All: grayscale images.
 
-    kwargs: if_save, save_dir
+    kwargs: if_save, save_dir, metrics
     """
     def dict2title(args_dict: dict):
         # customize with LATEX here
-        title = r"$\lambda = $" + f"{args_dict['lr_scaled']}, " + \
-                r"$\alpha$ = " + f"{args_dict['step_lr']}, " + \
-                r"$\sigma_{data}^2 = $" + f"{args_dict['lamda']}"
-
-        title = r"$\lambda = $" + f"{args_dict['lr_scaled']}, " + \
-                r"$\alpha$ = " + f"{args_dict['step_lr']}, "
+        title = r"$\lambda = $" + f"{args_dict['lr_scaled']: .2E}, " + \
+                r"$\alpha$ = " + f"{args_dict['step_lr']: .2E}, "
 
         return title
 
@@ -36,16 +58,28 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
     recons = ptu.to_numpy(recons)
     args_dict = load_pickle(os.path.join(root_dir, args_filename))
     col0_titles = ["mag gt", "phase gt"]
-    last_col_titles = ["mean mag", "mean phase"]
+    mean_col_titles = ["mean mag", "mean phase"]
+    std_col_titles = ["std mag", "std phase"]
     sample_col_titles = ["mag", "phase", "abs diff", "abs mag diff"]
     snr_array = compute_snr(recons)  # (B,)
     num_samples = recons.shape[0]
-    num_cols = 2 + num_samples
-    num_rows = 4
+    num_cols = 3 + num_samples  # +3: orig, mean & std
+    num_rows = 6
+
+    # compute all metrics
+    metrics = kwargs.get("metrics", ["NRMSE", "SSIM"])
+    metric_vals = {}
+    metric_vals["SNR"] = snr_array  # (B,)
+    # on mag image:
+    metric_vals.update(compute_metrics(metrics, np.abs(recons), np.abs(img_orig)))
+    mag_std = np.abs(recons).std(axis=0)
+    phase_std = compute_angle(recons).std(axis=0)
+
 
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(FIGSIZE_UNIT * num_cols, FIGSIZE_UNIT * num_rows))
     for j in range(axes.shape[1]):
         if j == 0:
+            # orig
             handle = axes[0, j].imshow(np.abs(img_orig[0, 0]), cmap="gray")
             plt.colorbar(handle, ax=axes[0, j])
             axes[0, j].set_title(col0_titles[0])
@@ -54,25 +88,47 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
             plt.colorbar(handle, ax=axes[1, j])
             axes[1, j].set_title(col0_titles[1])
 
-            for i in [2, 3]:
-                axes[i, j].set_axis_off()
-                continue
+            for i in range(num_rows):
+                if i not in [0, 1]:
+                    axes[i, j].set_axis_off()
+                    # continue
 
-
-        elif j == num_cols - 1:
+        elif j == num_cols - 2:
+            # mean
             handle = axes[0, j].imshow(np.abs(recons[:, 0, ...]).mean(axis=0), cmap="gray")
             plt.colorbar(handle, ax=axes[0, j])
-            axes[0, j].set_title(last_col_titles[0])
+            axes[0, j].set_title(mean_col_titles[0])
 
             handle = axes[1, j].imshow(compute_angle(recons[:, 0, ...]).mean(axis=0), cmap="gray")
             plt.colorbar(handle, ax=axes[1, j])
-            axes[1, j].set_title(last_col_titles[1])
+            axes[1, j].set_title(mean_col_titles[1])
 
-            for i in [2, 3]:
-                axes[i, j].set_axis_off()
-                continue
+            text_dict = {metric_name: [metric_vals[metric_name].mean()] for metric_name in metric_vals}
+            add_text(axes[-2, j], text_dict)
+
+            for i in range(num_rows):
+                if i not in [0, 1, num_rows - 2]:
+                    axes[i, j].set_axis_off()
+
+        elif j == num_cols - 1:
+            # std
+            handle = axes[0, j].imshow(np.abs(recons[:, 0, ...]).std(axis=0), cmap="gray")
+            plt.colorbar(handle, ax=axes[0, j])
+            axes[0, j].set_title(std_col_titles[0])
+
+            handle = axes[1, j].imshow(compute_angle(recons[:, 0, ...]).std(axis=0), cmap="gray")
+            plt.colorbar(handle, ax=axes[1, j])
+            axes[1, j].set_title(std_col_titles[1])
+
+            text_dict = {metric_name: [metric_vals[metric_name].std()] for metric_name in metric_vals}
+            add_text(axes[-2, j], text_dict)
+
+            for i in range(num_rows):
+                if i not in [0, 1, num_rows - 2]:
+                    axes[i, j].set_axis_off()
 
         else:
+            # for each sample reconstruction
             idx = j - 1
             imgs_iter = [
                 np.abs(recons[idx, 0]),
@@ -84,9 +140,17 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
                 handle = axes[i, j].imshow(img_iter, cmap="gray")
                 plt.colorbar(handle, ax=axes[i, j])
                 title_iter = sample_col_titles[i]
-                if i == 0:
-                    title_iter = f"{title_iter}: SNR = {snr_array[idx]: .2f} dB"
+                # no need to print SNR on mag title
+                # if i == 0:
+                #     title_iter = f"{title_iter}: SNR = {snr_array[idx]: .2f} dB"
                 axes[i, j].set_title(title_iter)
+
+            # last but second row: metrics
+            text_dict = {metric_name: [metric_vals[metric_name][idx]] for metric_name in metric_vals}
+            add_text(axes[-2, j], text_dict)
+
+            # last row: correlation subplot
+            add_correlation_table(axes[-1, j], mag_std, phase_std, imgs_iter[-2], imgs_iter[-1])
 
     sup_title = dict2title(args_dict)
     fig.suptitle(sup_title)
@@ -116,7 +180,7 @@ def metric_vs_hyperparam(root_dirs: list, metrics: list, params: list, defaults:
     "if_logscale_x" contains hyper-parameters for setting log-scale for x axis.
 
     "defaults" should contain all hyper-parameters with default values. Each plot will only plot for one metric vs
-    one hyper-parameter.
+    one hyper-parameters.
 
     kwargs: if_save, save_dir
     """
@@ -178,7 +242,7 @@ def metric_vs_hyperparam(root_dirs: list, metrics: list, params: list, defaults:
     # creating plots
     for i, param_name_iter in enumerate(params):
         # ordering params: in accordance to "params"
-        # one row for one hyper-parameter
+        # one row for one hyper-parameters
         for j, metric_name_iter in enumerate(metrics):
             # one col for one metric
             axis = axes[i, j]

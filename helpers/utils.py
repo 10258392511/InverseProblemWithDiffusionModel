@@ -221,12 +221,13 @@ def load_pickle(filename: str):
     return data
 
 
-def compute_angle(img: Union[torch.Tensor, np.ndarray]):
+def compute_angle(img: Union[torch.Tensor, np.ndarray], if_normalize=False):
     if isinstance(img, torch.Tensor):
         img = ptu.to_numpy(img)
     angle = np.angle(img)
-    angle -= angle.min()
-    angle /= angle.max()
+    if if_normalize:
+        angle -= angle.min()
+        angle /= angle.max()
 
     return angle
 
