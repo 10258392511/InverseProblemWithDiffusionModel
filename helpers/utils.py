@@ -257,3 +257,19 @@ def get_timestamp():
     time_stamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
 
     return time_stamp
+
+
+def undersample_seg_mask(label: torch.Tensor, fraction=1., seed=None):
+    # label: (B, 1, H, W)
+    assert 0. <= fraction <= 1.
+    if seed is not None:
+        torch.random.manual_seed(seed)
+    non_zeros = torch.nonzero(label, as_tuple=True)
+    num_samples = max(1, int(non_zeros[0].shape[0] * fraction))
+    sample_indices = torch.randperm(non_zeros[0].shape[0])
+    sample_indices = sample_indices[:num_samples]
+    indices = [ind_iter[sample_indices] for ind_iter in non_zeros]
+    label_out = torch.zeros_like(label)
+    label_out[indices] = 1.
+
+    return label_out

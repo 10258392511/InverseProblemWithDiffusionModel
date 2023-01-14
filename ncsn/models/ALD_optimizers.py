@@ -218,10 +218,10 @@ class ALDInvSegProximalRealImag(ALDOptimizer):
 
                 ### inserting pt ###
                 # TODO: consider whether using seg-net on real & imag; or mag only
-                # grad_real = self.adjust_grad(grad_prior_real, x_mod_real, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
-                # grad_imag = self.adjust_grad(grad_prior_imag, x_mod_imag, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
-                grad_real = grad_prior_real
-                grad_imag = grad_prior_imag
+                grad_real = self.adjust_grad(grad_prior_real, x_mod_real, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                grad_imag = self.adjust_grad(grad_prior_imag, x_mod_imag, sigma=sigma, seg_lamda=lh_seg_weight, **kwargs)
+                # grad_real = grad_prior_real
+                # grad_imag = grad_prior_imag
                 ####################
 
                 noise_real = torch.randn_like(x_mod_real)
@@ -260,16 +260,17 @@ class ALDInvSegProximalRealImag(ALDOptimizer):
     
     def adjust_grad(self, grad, m_mod, **kwargs):
         """
-        kwargs: label, seg_lamda, sigma
+        kwargs: label, seg_lamda, sigma, seg_mode
         """
         # m_mod: (B, C, H, W)
         label = kwargs["label"]
         lamda = kwargs["seg_lamda"]
         sigma = kwargs["sigma"]
+        seg_mode = kwargs["seg_mode"]
 
-        grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label)  # (B, C, H, W)
-        # grad = grad + grad_log_lh_seg / sigma * lamda
-        grad = grad + grad_log_lh_seg  * lamda
+        grad_log_lh_seg = compute_seg_grad(self.seg, m_mod, label, seg_mode)  # (B, C, H, W)
+        grad = grad + grad_log_lh_seg / sigma * lamda
+        # grad = grad + grad_log_lh_seg  * lamda
 
         return grad
 

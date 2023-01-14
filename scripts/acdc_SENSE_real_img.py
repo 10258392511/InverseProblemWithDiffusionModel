@@ -18,7 +18,7 @@ from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import SENSE
 from InverseProblemWithDiffusionModel.ncsn.models.proximal_op import get_proximal
 from InverseProblemWithDiffusionModel.ncsn.models.ALD_optimizers import ALDInvSegProximalRealImag
-from InverseProblemWithDiffusionModel.helpers.utils import vis_images, create_filename
+from InverseProblemWithDiffusionModel.helpers.utils import vis_images, create_filename, undersample_seg_mask
 from monai.utils import CommonKeys
 
 
@@ -43,6 +43,8 @@ if __name__ == '__main__':
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--sens_type", default="exp")
     parser.add_argument("--num_sens", type=int, default=4)
+    parser.add_argument("--seg_mode", choices=["full", "FG"], default="full")
+    parser.add_argument("--seg_fraction", type=float, default=1.)
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
     args_dict = vars(parser.parse_args())
@@ -86,6 +88,8 @@ if __name__ == '__main__':
         x_mod_shape[1:],
         args_dict["seed"]
     )
+    label = undersample_seg_mask(label, args_dict["seg_fraction"], seed=args_dict["seed"])
+
 
     for i in range(linear_tfm.sens_maps.shape[0]):
         vis_images(linear_tfm.sens_maps[i:i + 1], if_save=True, save_dir=args_dict["save_dir"], 
@@ -138,7 +142,7 @@ if __name__ == '__main__':
     print(f"original error: {original_error}")
 
     ALD_call_params = dict(label=label, lamda=args_dict["lamda"], save_dir=args_dict["save_dir"],
-                           lr_scaled=args_dict["lr_scaled"])
+                           lr_scaled=args_dict["lr_scaled"], seg_mode=args_dict["seg_mode"])
     img_out = ALD_sampler(**ALD_call_params)[0]  # (B, C, H, W)
 
     filename = create_filename(filename_dict, suffix=".png")

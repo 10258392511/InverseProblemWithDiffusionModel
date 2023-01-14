@@ -194,8 +194,9 @@ def compute_clf_grad(clf, X, cls):
     return grad_out
 
 
-def compute_seg_grad(seg, X, label):
+def compute_seg_grad(seg, X, label, mode="full"):
     # X: (B, C, H, W); label: (B, 1, H, W)
+    assert mode in ["full", "FG"]
     torch.set_grad_enabled(True)
     X.requires_grad = True
     y_pred = seg(X)  # (B, num_cls, H, W)
@@ -208,6 +209,8 @@ def compute_seg_grad(seg, X, label):
     grad_out = X.grad
 
     torch.set_grad_enabled(False)
+    if mode == "FG":
+        grad_out = grad_out * label
 
     return grad_out
 
