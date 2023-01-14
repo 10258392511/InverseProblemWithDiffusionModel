@@ -201,7 +201,7 @@ class ValVisualizationSeg(pl.Callback):
             print(self.idx_real_img)
         pred = pl_module.model(img_in.to(device)).squeeze(0)  # (1, 2, H, W) -> (2, H, W)
         pred = pred.argmax(dim=0, keepdim=True)
-        trainer.logger.experiment.add_image("img", img[0], self.num_epochs)
+        trainer.logger.experiment.add_image("img", img_in[0], self.num_epochs)
         trainer.logger.experiment.add_image("label", label, self.num_epochs)
         trainer.logger.experiment.add_image("pred", pred, self.num_epochs)
         self.num_epochs += 1

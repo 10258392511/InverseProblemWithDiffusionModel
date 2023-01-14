@@ -50,6 +50,8 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
         title = r"$\lambda = $" + f"{args_dict['lr_scaled']: .2E}, " + \
                 r"$\alpha$ = " + f"{args_dict['step_lr']: .2E}, "
 
+        # title = r"$reg\_weight = $" + f"{args_dict['reg_weight']: .2E}"
+
         return title
 
     img_orig = torch.load(os.path.join(root_dir, orig_filename))  # (1, C, H, W)
@@ -190,6 +192,12 @@ def metric_vs_hyperparam(root_dirs: list, metrics: list, params: list, defaults:
             "step_lr": r"$\alpha$",
             "lr_scaled": r"$\lambda$"
         }
+
+        # param2str_dict = {
+        #     "reg_weight": r"reg_weight",
+        #     "num_sens": r"num_sens"
+        # }
+
         assert param_name in param2str_dict
 
         return param2str_dict[param_name]
@@ -197,8 +205,12 @@ def metric_vs_hyperparam(root_dirs: list, metrics: list, params: list, defaults:
     def dict2title(args_dict: dict):
         # customize with LATEX here
         title = "defaults: " + \
-                r"$\lambda = $" + f"{args_dict['lr_scaled']}, " + \
-                r"$\alpha$ = " + f"{args_dict['step_lr']}"
+                r"$\lambda = $" + f"{args_dict['lr_scaled']: .2E}, " + \
+                r"$\alpha$ = " + f"{args_dict['step_lr']: .2E}"
+        
+        # title = "defaults: " + \
+        #         r"reg_weight = " + f"{args_dict['reg_weight']}, " + \
+        #         r"num_sens = " + f"{args_dict['num_sens']}"
 
         return title
 

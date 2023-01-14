@@ -128,7 +128,7 @@ class SENSE(LinearTransform):
         S = []
         sens_maps = self.sens_maps.to(X.device)
         for i in range(sens_maps.shape[0]):
-            sens_map_iter = sens_maps[0]  # (H, W)
+            sens_map_iter = sens_maps[i]  # (H, W)
             S.append(self.random_under_fourier(sens_map_iter * X))
 
         S = torch.stack(S, dim=0)  # [(B, C, H, W)...] -> (num_sens, B, C, H, W)
