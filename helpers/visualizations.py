@@ -6,6 +6,7 @@ import os
 import warnings
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
+from scipy.stats import spearmanr
 from InverseProblemWithDiffusionModel.helpers.utils import load_pickle, compute_angle
 from InverseProblemWithDiffusionModel.helpers.metrics import REGISTERED_METRICS, compute_snr, compute_metrics
 
@@ -28,10 +29,16 @@ def add_correlation_table(axis: plt.Axes, mag_std: np.ndarray, phase_std: np.nda
     corr_vals = np.zeros((2, 2))
     for i, x_iter in enumerate([abs_error, abs_mag_error]):
         for j, y_iter in enumerate([mag_std, phase_std]):
-            data_iter = np.stack([x_iter.flatten(), y_iter.flatten()], axis=0)  # (2, N)
-            corr_val = np.corrcoef(data_iter)[0, 1]
-            # if not np.isnan(corr_val):
-            corr_vals[i, j] = corr_val
+            # # Pearson
+            # data_iter = np.stack([x_iter.flatten(), y_iter.flatten()], axis=0)  # (2, N)
+            # corr_val = np.corrcoef(data_iter)[0, 1]
+            # # if not np.isnan(corr_val):
+            # corr_vals[i, j] = corr_val
+
+            # Spearman rank
+            res = spearmanr(x_iter.flatten(), y_iter.flatten())
+            # print(res)
+            corr_vals[i, j] = res.correlation
 
     axis.table(cellText=corr_vals.round(decimals=4), rowLabels=row_texts, colLabels=col_texts,
                loc="center", cellLoc="center")
@@ -66,7 +73,7 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
     snr_array = compute_snr(recons)  # (B,)
     num_samples = recons.shape[0]
     num_cols = 3 + num_samples  # +3: orig, mean & std
-    num_rows = 6
+    num_rows = 5
 
     # compute all metrics
     metrics = kwargs.get("metrics", ["NRMSE", "SSIM"])
@@ -106,10 +113,12 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
             axes[1, j].set_title(mean_col_titles[1])
 
             text_dict = {metric_name: [metric_vals[metric_name].mean()] for metric_name in metric_vals}
-            add_text(axes[-2, j], text_dict)
+            # add_text(axes[-2, j], text_dict)
+            add_text(axes[2, j], text_dict)
 
             for i in range(num_rows):
-                if i not in [0, 1, num_rows - 2]:
+                # if i not in [0, 1, num_rows - 2]:
+                if i not in [0, 1, 2]:
                     axes[i, j].set_axis_off()
 
         elif j == num_cols - 1:
@@ -122,11 +131,13 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
             plt.colorbar(handle, ax=axes[1, j])
             axes[1, j].set_title(std_col_titles[1])
 
-            text_dict = {metric_name: [metric_vals[metric_name].std()] for metric_name in metric_vals}
-            add_text(axes[-2, j], text_dict)
+            # text_dict = {metric_name: [metric_vals[metric_name].std()] for metric_name in metric_vals}
+            # # add_text(axes[-2, j], text_dict)
+            # add_text(axes[3, j], text_dict)
 
             for i in range(num_rows):
-                if i not in [0, 1, num_rows - 2]:
+                # if i not in [0, 1, num_rows - 2]:
+                if i not in [0, 1]:
                     axes[i, j].set_axis_off()
 
         else:
@@ -147,9 +158,9 @@ def create_sample_grid_plot(root_dir: str, orig_filename="original.pt", recons_f
                 #     title_iter = f"{title_iter}: SNR = {snr_array[idx]: .2f} dB"
                 axes[i, j].set_title(title_iter)
 
-            # last but second row: metrics
-            text_dict = {metric_name: [metric_vals[metric_name][idx]] for metric_name in metric_vals}
-            add_text(axes[-2, j], text_dict)
+            # # last but second row: metrics
+            # text_dict = {metric_name: [metric_vals[metric_name][idx]] for metric_name in metric_vals}
+            # add_text(axes[-2, j], text_dict)
 
             # last row: correlation subplot
             add_correlation_table(axes[-1, j], mag_std, phase_std, imgs_iter[-2], imgs_iter[-1])
