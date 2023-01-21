@@ -273,3 +273,33 @@ def undersample_seg_mask(label: torch.Tensor, fraction=1., seed=None):
     label_out[indices] = 1.
 
     return label_out
+
+
+def reshape_temporal_dim(x: torch.Tensor, kx, ky, direction="forward", img_size=None):
+    """
+    "forward": (N, T, H, W) -> (N * H * W / (kx * ky), kx * ky, T)
+    "backward": (N * H * W / (kx * ky), kx * ky, T) -> (N, T, H, W)
+    """
+    assert direction in ["forward", "backward"]
+    if direction == "forward":
+        N, T, H, W = x.shape
+        assert H % kx == 0 and W % ky == 0
+        x_out = x.permute(0, 2, 3, 1)  # (N, H, W, T)
+        x_out = x_out.reshape(N, H // kx, kx, W // ky, ky, T)  # (N, H // kx, kx, W // ky, ky, T)
+        x_out = x_out.permute(0, 1, 3, 2, 4, 5)  # (N, H // kx, W // ky, kx, ky, T)
+        x_out = x_out.reshape(-1, kx * ky , T)  # (N', kx * ky, T)
+
+        return x_out
+    
+    else:
+        assert img_size is not None
+        H, W = img_size
+        assert H % kx == 0 and W % ky == 0
+        N_out, C, T = x.shape
+        assert C == kx * ky
+        x_out = x.reshape(-1, H // kx, W // ky, kx, ky, T)  # (N, H // kx, W // ky, kx, ky, T)
+        x_out = x_out.permute(0, 1, 3, 2, 4, 5)  # (N, H // kx, kx, W // ky, ky, T)
+        x_out = x_out.reshape(-1, H, W, T)  # (N, H, W, T)
+        x_out = x_out.permute(0, 3, 1, 2)  # (N, T, H, W)
+
+        return x_out

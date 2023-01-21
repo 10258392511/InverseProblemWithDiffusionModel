@@ -26,7 +26,7 @@ from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import Compose, ToTensor, Normalize, Resize
 from monai.transforms import Resize as monai_Resize
 from typing import Union
-from InverseProblemWithDiffusionModel.helpers.utils import load_yml_file
+from InverseProblemWithDiffusionModel.helpers.utils import load_yml_file, reshape_temporal_dim
 
 
 parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -48,6 +48,9 @@ REGISTERED_DATA_CONFIG_FILENAME = {
 
 
 def load_data(ds_name, mode="train", **kwargs):
+    """
+    kwargs: CINE64/127: flatten_type
+    """
     assert ds_name in REGISTERED_DATA_ROOT_DIR.keys()
     assert mode in ["train", "val", "test"]
 
@@ -57,9 +60,18 @@ def load_data(ds_name, mode="train", **kwargs):
     if ds_name == "MNIST":
         ds_out = load_mnist(ds_path, mode, **kwargs)
     elif ds_name == "CINE64":
-        ds_out = load_cine(ds_path, mode, **kwargs)
+        flatten_type = kwargs.get("flatten_type", "spatial")
+        if flatten_type == "spatial":
+            ds_out = load_cine(ds_path, mode, **kwargs)
+        else:
+            ds_out = load_cine(ds_path, mode, resize_shape_T=32, **kwargs)
     elif ds_name == "CINE127":
-        ds_out = load_cine(ds_path, mode, resize_shape=128, **kwargs)
+        flatten_type = kwargs.get("flatten_type", "spatial")
+        if flatten_type == "spatial":
+            ds_out = load_cine(ds_path, mode, resize_shape=128, **kwargs)
+        else:
+            ds_out = load_cine(ds_path, mode, resize_shape=128, resize_shape_T=32, **kwargs)
+
     elif ds_name == "ACDC":
         ds_out = load_ACDC(ds_path, mode=mode, **kwargs)
 
@@ -96,9 +108,10 @@ def load_cifar10(root_dir, mode="train"):
     return ds
 
 
-def load_cine(root_dir, mode="train", img_key="imgs", flatten=True,
-              resize_shape: Union[int, None] = None, **kwargs):
+def load_cine(root_dir, mode="train", img_key="imgs", flatten=True, flatten_type="spatial",
+              resize_shape: Union[int, None] = None, resize_shape_T=None, win_size=2, **kwargs):
     assert mode in ["train", "val", "test"]
+    assert flatten_type in ["spatial", "temporal"]
     if mode == "val":
         mode = "test"
     filename = glob.glob(os.path.join(root_dir, f"*{mode}*.mat"))[0]
@@ -106,15 +119,30 @@ def load_cine(root_dir, mode="train", img_key="imgs", flatten=True,
     ds = ds.transpose(3, 2, 0, 1)  # (N, T, H, W)
     ds = (ds - ds.min()) / (ds.max() - ds.min())
     if flatten:
-        N, T, H, W = ds.shape
-        ds = ds.reshape(-1, H, W)  # (N', H, W)
-        if resize_shape is not None and not (H == resize_shape and W == resize_shape):
+        if flatten_type == "spatial":
+            N, T, H, W = ds.shape
+            ds = ds.reshape(-1, H, W)  # (N', H, W)
+            if resize_shape is not None and not (H == resize_shape and W == resize_shape):
+                resizer = Compose([
+                    monai_Resize(spatial_size=(resize_shape, resize_shape)),
+                ])
+                ds = resizer(ds)  # (H, W, N') -> (N', H, W) -> (N', H0, W0)
+            # (N', H0, W0) -> (N', 1, H0, W0)
+            ds = ds[:, None, ...]
+
+        else:
+            N, T, H, W = ds.shape
+            resize_shape_T = T if resize_shape_T is None else resize_shape_T
+            resize_shape_H = H if resize_shape is None else resize_shape
+            resize_shape_W = W if resize_shape is None else resize_shape            
             resizer = Compose([
-                monai_Resize(spatial_size=(resize_shape, resize_shape)),
+              monai_Resize(spatial_size=(resize_shape_T, resize_shape_H, resize_shape_W))  
             ])
-            ds = resizer(ds)  # (H, W, N') -> (N', H, W) -> (N', H0, W0)
-        # (N', H0, W0) -> (N', 1, H0, W0)
-        ds = ds[:, None, ...]
+            ds = resizer(ds)  # (N, T', H', W')
+            from InverseProblemWithDiffusionModel.helpers.utils import vis_volume
+            vis_volume(ds[0])
+            ds = torch.tensor(ds)
+            ds = reshape_temporal_dim(ds, win_size, win_size)  # (N', win_size^2, T')
     if isinstance(ds, np.ndarray):
         ds = torch.tensor(ds)
     ds = TensorDataset(ds)
