@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument("--ds_name", required=True)
     parser.add_argument("--task_name", required=True)
     parser.add_argument("--mode", required=True)
+    parser.add_argument("--flatten_type", default="spatial")
     parser.add_argument("--num_workers", type=int, default=16)
     parser.add_argument("--if_centering", action="store_true")
     args = vars(parser.parse_args())
@@ -32,13 +33,17 @@ if __name__ == '__main__':
     log_dir = "./"
     log_name = "ncsn_logs"
 
-    train_ds = load_data(ds_name, "train", if_aug=False)
-    val_ds = load_data(ds_name, "val", if_aug=False)
+    if "CINE" in args["ds_name"] and args["flatten_type"] == "temporal":
+        train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"])
+        val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"])
+    else:
+        train_ds = load_data(ds_name, "train", if_aug=False)
+        val_ds = load_data(ds_name, "val", if_aug=False)
     ds_dict = {
         "train": train_ds,
         "val": val_ds
     }
-    config = load_config(ds_name, mode=mode)
+    config = load_config(ds_name, mode=mode, flatten_type=args["flatten_type"])
     model = load_model(config, task_name)
     params = {
         "batch_size": config.training.batch_size,
@@ -55,7 +60,8 @@ if __name__ == '__main__':
         log_dir=".",
         log_name="ncsn_logs",
         num_epochs=config.training.n_epochs,
-        return_log_dir=True
+        return_log_dir=True,
+        if_monitor=False
     )
 
     if not os.path.isdir(log_dir_full):

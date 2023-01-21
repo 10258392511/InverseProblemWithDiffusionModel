@@ -106,6 +106,44 @@ def vis_images(*images, **kwargs):
     plt.close()
 
 
+def vis_signals(*signals, **kwargs):
+    """
+    signals: list[(C, T)]
+    kwargs: if_save, save_dir, filename, titles
+    """
+    num_imgs = len(signals)
+    fig, axes = plt.subplots(num_imgs, 1, figsize=(general_config.figsize_unit * 3, general_config.figsize_unit * num_imgs))
+    if num_imgs == 1:
+        axes = [axes]
+    titles = kwargs.get("titles", None)
+    if titles is not None:
+        assert len(titles) == len(signals)
+    for i, (img_iter, axis) in enumerate(zip(signals, axes)):
+        channel = 0
+        # channel = 0 if img_iter.shape[0] == 1 else 1
+        if isinstance(img_iter, torch.Tensor):
+            img_iter = ptu.to_numpy(img_iter)
+        img_iter = img_iter[channel]
+        handle = axis.plot(img_iter)
+        if titles is not None:
+            axis.set_title(titles[i])
+
+    fig.tight_layout()
+    if_save = kwargs.get("if_save", False)
+    if if_save:
+        save_dir = kwargs.get("save_dir", "./outputs")
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+        assert "filename" in kwargs
+        filename = kwargs.get("filename")
+        filename_full = os.path.join(save_dir, filename)
+        fig.savefig(filename_full)
+    else:
+        plt.show()
+    plt.close()
+
+
+
 def collate_state_dict(state_dict: dict):
     out_dict = {}
     prefix = "model."

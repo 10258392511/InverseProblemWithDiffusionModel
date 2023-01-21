@@ -42,7 +42,9 @@ REGISTERED_DATA_ROOT_DIR = {
 REGISTERED_DATA_CONFIG_FILENAME = {
     "MNIST": os.path.join(parent_dir, "ncsn/configs/mnist.yml"),
     "CINE64": os.path.join(parent_dir, "ncsn/configs/cine64.yml"),
+    "CINE64_1D": os.path.join(parent_dir, "ncsn/configs/cine64_1d.yml"),
     "CINE127": os.path.join(parent_dir, "ncsn/configs/cine127.yml"),
+    "CINE127_1D": os.path.join(parent_dir, "ncsn/configs/cine127_1d.yml"),
     "ACDC": os.path.join(parent_dir, "ncsn/configs/acdc.yml")
 }
 
@@ -139,9 +141,8 @@ def load_cine(root_dir, mode="train", img_key="imgs", flatten=True, flatten_type
               monai_Resize(spatial_size=(resize_shape_T, resize_shape_H, resize_shape_W))  
             ])
             ds = resizer(ds)  # (N, T', H', W')
-            from InverseProblemWithDiffusionModel.helpers.utils import vis_volume
-            vis_volume(ds[0])
-            ds = torch.tensor(ds)
+            if not isinstance(ds, torch.Tensor):
+                ds = torch.tensor(ds)
             ds = reshape_temporal_dim(ds, win_size, win_size)  # (N', win_size^2, T')
     if isinstance(ds, np.ndarray):
         ds = torch.tensor(ds)
@@ -269,11 +270,16 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
     return ds_out
 
 
-def load_config(ds_name, mode="real-valued", device=None):
+def load_config(ds_name, mode="real-valued", device=None, **kwargs):
     assert mode in ["real-valued", "mag", "complex", "real-imag", "real-imag-random"]
     assert ds_name in REGISTERED_DATA_CONFIG_FILENAME.keys()
     if device is None:
         device = ptu.DEVICE
+
+    flatten_type = kwargs.get("flatten_type", "spatial")
+    if "CINE" in ds_name and flatten_type == "temporal":
+        ds_name = f"{ds_name}_1D"
+
     config_path = REGISTERED_DATA_CONFIG_FILENAME[ds_name]
     config_namespace = load_yml_file(config_path)
     config_namespace.device = device
@@ -289,6 +295,10 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
     """
     assert mode in ["real-valued", "mag", "complex", "real-imag", "real-imag-random"]
     # batch: (B, 1, H, W)
+    batch_dim = batch.dim()
+    if batch_dim == 3:
+        # (B, C, T)
+        batch = batch.unsqueeze(1)  # (B, 1, C, T)
     assert batch.shape[1] == 1
     if mode == "real-valued":
         pass
@@ -297,6 +307,7 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
         pass
 
     elif mode == "complex":
+        assert batch_dim == 4
         batch = torch.cat([batch, torch.zeros_like(batch)], dim=1)  # (B, 2, H, W)
     
     elif mode == "real-imag":
@@ -310,7 +321,14 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
     elif mode == "real-imag-random":
         batch = add_phase(batch)
         batch = [torch.real(batch), torch.imag(batch)]
-
+    
+    if batch_dim == 3:
+        if isinstance(batch, list):
+            for i in range(len(batch)):
+                batch[i] = batch[i].squeeze()
+        else:
+            batch = batch.squeeze()
+            
     return batch
 
 

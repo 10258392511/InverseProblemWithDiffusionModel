@@ -5,6 +5,7 @@ import glob
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from InverseProblemWithDiffusionModel.ncsn.models.ncsnv2 import NCSNv2Deepest, NCSNv2
+from InverseProblemWithDiffusionModel.ncsn.models.ncsn1d import NCSN1D
 from InverseProblemWithDiffusionModel.ncsn.models.classifiers import ResNetClf
 from monai.networks.nets import UNet
 from InverseProblemWithDiffusionModel.helpers.load_data import load_config
@@ -20,6 +21,7 @@ with open(os.path.join(parent_dir, "ncsn/configs/general_config.yml"), "r") as r
 
 TASK_NAME_TO_MODEL_CTOR = {
     "Diffusion": NCSNv2Deepest,
+    "Diffusion1D": NCSN1D,
     "Clf": ResNetClf,
     "Seg": UNet
 }
@@ -52,9 +54,15 @@ RELOAD_MODEL_DIRS = {
             "real-valued": "2023_01_05_23_50_36_557715",  # real-imag, [0, 1] -> [-1, 1]
             "complex": "2022_11_04_23_42_23_930412"
         },
+        "CINE64_1D": {
+            "real-valued": None
+        },
         "CINE127": {
             "real-valued": "2022_11_04_23_58_37_174974",
             "complex": "2022_11_05_00_02_01_120409"
+        },
+        "CINE127_1D": {
+            "real-valued": None
         },
         "ACDC": {
             # "real-valued": "2022_11_07_10_48_24_147215",  # [0, 1]
@@ -93,7 +101,7 @@ def load_model(config, task_name, use_net_params=False):
         net_params["in_channels"] = config.data.channels
 
     model = None
-    if task_name == "Diffusion":
+    if "Diffusion" in task_name:
         model = net_ctor(config)
 
     elif task_name == "Clf":
