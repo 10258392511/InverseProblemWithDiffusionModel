@@ -330,18 +330,20 @@ class ALD2DTime(ALDOptimizer):
     def __init__(self, proximal: Proximal, scorenet_T, sigmas_T, *args, **kwargs):
         """
         x_mod_shape: (B, T, C, H, W)
-        measurement: (B, T, C, H, W)
+        measurement: (num_sens, B, T, C, H, W)
         """
         super(ALD2DTime, self).__init__(*args, **kwargs)
+        self.proximal = proximal
         self.scorenet_T = scorenet_T
         self.sigmas_T = F.interpolate(sigmas_T.view(1, 1, -1), self.sigmas.shape[0], mode="nearest").squeeze()  # (T,)
         self.win_size = np.sqrt(self.scorenet_T.config.data.channels).astype(int)
+        self.finite_diff = None
         self.if_print = False
         self.print_args = {}
 
     def __call__(self, **kwargs):
         """
-        kwargs: label, lamda, save_dir, lr_scaled
+        kwargs: label, lamda, save_dir, lr_scaled, mode_T: ["tv", "diffusion1d"], lamda_T: weighting for temporal step, 
         """
         torch.set_grad_enabled(False)
         ### inserting pt ###
@@ -354,7 +356,8 @@ class ALD2DTime(ALDOptimizer):
 
         print_interval = len(self.sigmas) // 10
 
-        for c, sigma in enumerate(self.sigmas):
+        for c in range(self.sigmas.shape[0]):
+            print(f"current: {c + 1}/{self.sigmas.shape[0]}")
             self.if_print = False
 
             if c % print_interval == 0:
@@ -363,25 +366,115 @@ class ALD2DTime(ALDOptimizer):
                     "c": c,
                     "save_dir": kwargs.get("save_dir")
                 }
+           
+            labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
+            labels = labels.long()
 
+            for s in range(self.params["n_steps_each"]):
+                # spatial_step
+                x_mod = self.spatial_step(x_mod, c, labels)
+                ###########################################
+                x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+                print("after spatial: ")
+                print(f"x_mod_real, {s + 1}/{self.params['n_steps_each']}: {(x_mod_real.max(), x_mod_real.min())}")  ###
+                print(f"x_mod_imag, {s + 1}/{self.params['n_steps_each']}: {(x_mod_imag.max(), x_mod_imag.min())}")
+                ###########################################
+                
+                # temporal_step
+                mode_T = kwargs.get("mode_T", "diffusion1d")
+                lamda_T = kwargs.get("lamda_T", 1.)
+                x_mod = self.temporal_step(x_mod, c, labels, mode_T, lamda_T)
+                ###########################################
+                x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+                print("after temporal: ")
+                print(f"x_mod_real, {s + 1}/{self.params['n_steps_each']}: {(x_mod_real.max(), x_mod_real.min())}")  ###
+                print(f"x_mod_imag, {s + 1}/{self.params['n_steps_each']}: {(x_mod_imag.max(), x_mod_imag.min())}")
+                ###########################################
 
-        
+                # proximal
+                lr_scaled = kwargs["lr_scaled"]
+                x_mod = self.proximal_step(x_mod, self.params["step_lr"], lr_scaled)
+
+            if self.if_print:
+                self._screenshot(x_mod, self.print_args)
+
+        # no need to do the last denoising step
+
+        return [x_mod.to("cpu")]
 
     def init_x_mod(self):
-        B, T, C, H, W = self.measurement.shape
-        measurement = self.measurement.reshape(-1, C, H, W)  # (BT, C, H, W)
-        x_mod = self.linear_tfm.conj_op(measurement)
+        num_sens, B, T, C, H, W = self.measurement.shape
+        measurement = self.measurement.reshape(num_sens, -1, C, H, W)  # (nums_sens, BT, C, H, W)
+        x_mod = self.linear_tfm.conj_op(measurement)  # (BT, C, H, W)
         x_mod = x_mod.reshape(B, T, C, H, W)
 
         return x_mod
     
-    def spatial_step(self):
-        pass
+    def spatial_step(self, x_mod, c, labels):
+        # x_mod: (B, T, C, H, W), labels: (B,)
+        B, T, C, H, W = x_mod.shape
+        x_mod = x_mod.reshape(-1, C, H, W)  # (BT, C, H, W)
+        x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+        step_size = self.params["step_lr"] * (self.sigmas[c] / self.sigmas[-1]) ** 2
 
-    def temporal_step(self):
-        pass
+        grad_real = self.scorenet(x_mod_real, labels)  # (BT, C, H, W)
+        grad_imag = self.scorenet(x_mod_imag, labels)
+        noise_real = torch.randn_like(x_mod_real)
+        noise_imag = torch.randn_like(x_mod_imag)
+        x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
+        x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
+
+        x_mod = (x_mod_real + 1j * x_mod_imag).reshape(B, T, C, H, W)
+        
+        return x_mod
+        
+    def temporal_step(self, x_mod, c, labels, mode_T, lamda_T):
+        # x_mod: (B, T, C, H, W), labels: (B,)
+        # TV_t
+        if mode_T == "tv":
+            if self.finite_diff is None:
+                self.finite_diff = FiniteDiff(dims=1)
+            x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+            x_mod_real = x_mod_real + self.finite_diff.log_lh_grad(x_mod_real, lamda=lamda_T)
+            x_mod_imag = x_mod_imag + self.finite_diff.log_lh_grad(x_mod_real, lamda=lamda_T)
+
+            x_mod = x_mod_real + 1j * x_mod_imag
+
+        # scorenet_T
+        elif mode_T == "diffusion1d":
+            B, T, C, H, W = x_mod.shape
+            x_mod = x_mod.permute(0, 2, 1, 3, 4)  # (B, C, T, H, W)
+            x_mod = x_mod.reshape(-1, T, H, W)  # (BC, T, H, W)
+            x_mod = reshape_temporal_dim(x_mod, self.win_size, self.win_size, "forward")  # (B', kx * ky, T)
+            x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+            step_size = self.params["step_lr"] * (self.sigmas_T[c] / self.sigmas[-1]) ** 2
+
+            grad_real = self.scorenet(x_mod_real, labels) * lamda_T  # (B', kx * ky, T)
+            grad_imag = self.scorenet(x_mod_imag, labels) * lamda_T
+            noise_real = torch.randn_like(x_mod_real)
+            noise_imag = torch.randn_like(x_mod_imag)
+            x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
+            x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
+
+            x_mod = reshape_temporal_dim(x_mod_real + 1j * x_mod_imag, self.win_size, self.win_size, "backward", img_size=(H, W))  # (BC, T, H, W)
+            x_mod = x_mod.reshape(B, C, T, H, W).permute(0, 2, 1, 3, 4)  # (B, C, T, H, W) -> (B, T, C, H, W)
     
-    def _screen_shot(self, x_mod, print_args: dict):
+        return x_mod
+    
+    def proximal_step(self, x_mod, alpha, lr_scaled):
+        # x_mod: (B, T, C, H, W)
+        B, T, C, H, W = x_mod.shape
+        x_mod = x_mod.reshape(-1, C, H, W)  # (BT, C, H, W)
+        num_sens = self.measurement.shape[0]
+        measurement = self.measurement.reshape(num_sens, -1, *self.measurement.shape[2:])  # (num_sens, BT, C, H, W)
+        coeff = alpha * lr_scaled
+        print(f"coeff: {coeff}")
+        x_mod = self.proximal(x_mod, measurement, coeff, 1.)  # (BT, C, H, W)
+        x_mod = x_mod.reshape(B, T, C, H, W)
+
+        return x_mod
+
+    def _screenshot(self, x_mod, print_args: dict):
         """
         x_mod: (B, T, C, H, W)
         print_args: keys: c, save_dir

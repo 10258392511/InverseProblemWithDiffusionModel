@@ -142,6 +142,7 @@ class SENSE(LinearTransform):
         for i in range(S.shape[0]):
             X_out += sens_maps[i].conj() * self.random_under_fourier.conj_op(S[i])
 
+        # (B, C, H, W)
         return X_out
 
     def SSOS(self, S: torch.Tensor) -> torch.Tensor:
