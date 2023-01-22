@@ -13,7 +13,7 @@ from InverseProblemWithDiffusionModel.helpers.load_data import load_config, REGI
 from InverseProblemWithDiffusionModel.helpers.load_model import reload_model, TASK_NAME_TO_MODEL_CTOR
 from InverseProblemWithDiffusionModel.ncsn.models.ALD_optimizers import ALDUnconditionalSampler
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
-from InverseProblemWithDiffusionModel.helpers.utils import vis_tensor, create_filename
+from InverseProblemWithDiffusionModel.helpers.utils import vis_tensor, create_filename, vis_multi_channel_signal
 
 
 if __name__ == '__main__':
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--ds_name", required=True, choices=list(REGISTERED_DATA_CONFIG_FILENAME.keys()))
-    # parser.add_argument("--task_name", required=True, choices=list(TASK_NAME_TO_MODEL_CTOR.keys()))
+    parser.add_argument("--task_name", required=True, choices=["Diffusion", "Diffusion1D"], default="Diffusion")
     parser.add_argument("--mode", required=True, choices=["real-valued", "mag", "complex"])
     # parser.add_argument("--if_conditioned", action="store_true")
     parser.add_argument("--num_steps_each", type=int, default=3)
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     device = ptu.DEVICE
 
     config = load_config(args_dict["ds_name"], args_dict["mode"], device)
-    scorenet = reload_model("Diffusion", args_dict["ds_name"], args_dict["mode"])
+    scorenet = reload_model(args_dict["task_name"], args_dict["ds_name"], args_dict["mode"])
     ALD_sampler_params = {
         "n_steps_each": args_dict["num_steps_each"],
         "step_lr": config.sampling.step_lr,
@@ -41,12 +41,19 @@ if __name__ == '__main__':
         "denoise": config.sampling.denoise
     }
     sigmas = get_sigmas(config)
-    x_mod_shape = (
-        args_dict["num_samples"],
-        config.data.channels,
-        config.data.image_size,
-        config.data.image_size
-    )
+    if args_dict["task_name"] == "Diffusion1D":
+        x_mod_shape = (
+            args_dict["num_samples"],
+            config.data.channels,
+            config.data.image_size
+        )
+    else:
+        x_mod_shape = (
+            args_dict["num_samples"],
+            config.data.channels,
+            config.data.image_size,
+            config.data.image_size
+        )
     ALD_sampler = ALDUnconditionalSampler(
         x_mod_shape,
         scorenet,
@@ -55,18 +62,25 @@ if __name__ == '__main__':
         config,
         device=device
     )
-    images = ALD_sampler()[0]  # (B, C, H, W)
+    images = ALD_sampler()[0]  # (B, C, H, W) or (B, C, T)
 
     if not os.path.isdir(args_dict["save_dir"]):
         os.makedirs(args_dict["save_dir"])
-    fig = vis_tensor(images[:, 0:1, ...])  # save only the 1st channel
-    filename = create_filename(
-        {
-            "ds_name": args_dict["ds_name"],
-            "mode": args_dict["mode"],
-            "if_conditioned": args_dict["if_conditioned"]
-        },
-        suffix=".png"
-    )
-    save_path = os.path.join(args_dict["save_dir"], filename)
-    fig.savefig(save_path)
+    
+    if args_dict["task_name"] == "Diffusion":
+        fig = vis_tensor(images[:, 0:1, ...])  # save only the 1st channel
+        filename = create_filename(
+            {
+                "ds_name": args_dict["ds_name"],
+                "mode": args_dict["mode"],
+                "if_conditioned": args_dict["if_conditioned"]
+            },
+            suffix=".png"
+        )
+        save_path = os.path.join(args_dict["save_dir"], filename)
+        fig.savefig(save_path)
+
+    elif args_dict["task_name"] == "Diffusion1D":
+        # images: (B, C, T)
+        
+        vis_multi_channel_signal(images[0], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png")

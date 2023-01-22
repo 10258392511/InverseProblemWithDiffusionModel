@@ -10,7 +10,7 @@ training:
 sampling:
   batch_size: 1
   data_init: false
-  step_lr: 0.0000009
+  step_lr: 0.001  # 0.0000009
   n_steps_each: 3
   ckpt_id: 80000
   final_only: true

@@ -55,14 +55,14 @@ RELOAD_MODEL_DIRS = {
             "complex": "2022_11_04_23_42_23_930412"
         },
         "CINE64_1D": {
-            "real-valued": None
+            "real-valued": "2023_01_21_11_05_11_826573"  # real-imag, [0, 1]
         },
         "CINE127": {
             "real-valued": "2022_11_04_23_58_37_174974",
             "complex": "2022_11_05_00_02_01_120409"
         },
         "CINE127_1D": {
-            "real-valued": None
+            "real-valued": "2023_01_21_11_05_27_208935"  # real-imag, [0, 1]
         },
         "ACDC": {
             # "real-valued": "2022_11_07_10_48_24_147215",  # [0, 1]
@@ -116,7 +116,7 @@ def load_model(config, task_name, use_net_params=False):
 def reload_model(task_name, ds_name, mode):
     config = load_config(ds_name, mode=mode, device=ptu.DEVICE)
     mode_out = None
-    if task_name == "Diffusion":
+    if "Diffusion" in task_name:
         model = load_model(config, task_name, False)
         model_out = reload_ncsn(model, config, task_name, ds_name)
     elif task_name == "Clf":
@@ -132,6 +132,8 @@ def reload_model(task_name, ds_name, mode):
 
 
 def reload_ncsn(model, config, task_name, ds_name):
+    if "Diffusion" in task_name:
+        task_name = "Diffusion"
     mode = _get_data_mode(config)
     ds_dict = {}
     params = {
@@ -194,11 +196,12 @@ def reload_seg(model, config, task_name, ds_name):
 
 
 def _get_data_mode(config):
-    if config.data.channels == 1:
-        mode = "real-valued"
-    elif config.data.channels == 2:
+    mode = "real-valued"
+    # if config.data.channels == 1:
+    #     mode = "real-valued"
+    if config.data.channels == 2:
         mode = "complex"
-    else:
-        raise ValueError("Invalid number of channels.")
+    # else:
+    #     raise ValueError("Invalid number of channels.")
 
     return mode

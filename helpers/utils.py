@@ -143,6 +143,14 @@ def vis_signals(*signals, **kwargs):
     plt.close()
 
 
+def vis_multi_channel_signal(signal: torch.Tensor, **kwargs):
+    """
+    For only one signal: (C, T)
+    """
+    signal_list = [signal[c:c + 1, :] for c in range(signal.shape[0])]
+    titles = [f"channel_{i}" for i in range(signal.shape[0])]
+    vis_signals(*signal_list, titles=titles, **kwargs)
+
 
 def collate_state_dict(state_dict: dict):
     out_dict = {}

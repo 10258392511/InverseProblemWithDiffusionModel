@@ -1,12 +1,22 @@
 import abc
+import numpy as np
 import torch
+import torch.nn.functional as F
 import os
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from . import freeze_model, compute_clf_grad, compute_seg_grad
 from .proximal_op import Proximal, L2Penalty, Constrained, SingleCoil
-from InverseProblemWithDiffusionModel.helpers.utils import data_transform, vis_images, normalize, denormalize
+from InverseProblemWithDiffusionModel.helpers.utils import (
+    data_transform, 
+    vis_images, 
+    normalize, 
+    denormalize,
+    reshape_temporal_dim,
+    vis_multi_channel_signal
+)
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import i2k_complex, k2i_complex
+from InverseProblemWithDuffusionModel.ncsn.linear_transforms.finite_diff import FiniteDiff
 
 
 def get_lh_weights(sigmas, start_time, curve_type="linear"):
@@ -314,3 +324,83 @@ class ALDInvSegProximalRealImag(ALDOptimizer):
         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
 
         return x_mod_real, x_mod_imag
+
+
+class ALD2DTime(ALDOptimizer):
+    def __init__(self, proximal: Proximal, scorenet_T, sigmas_T, *args, **kwargs):
+        """
+        x_mod_shape: (B, T, C, H, W)
+        measurement: (B, T, C, H, W)
+        """
+        super(ALD2DTime, self).__init__(*args, **kwargs)
+        self.scorenet_T = scorenet_T
+        self.sigmas_T = F.interpolate(sigmas_T.view(1, 1, -1), self.sigmas.shape[0], mode="nearest").squeeze()  # (T,)
+        self.win_size = np.sqrt(self.scorenet_T.config.data.channels).astype(int)
+        self.if_print = False
+        self.print_args = {}
+
+    def __call__(self, **kwargs):
+        """
+        kwargs: label, lamda, save_dir, lr_scaled
+        """
+        torch.set_grad_enabled(False)
+        ### inserting pt ###
+        self.preprocessing_steps(**kwargs)
+        ####################
+
+        ### inserting pt ###
+        x_mod = self.init_x_mod()  # (B, T, C, H, W)
+        ####################
+
+        print_interval = len(self.sigmas) // 10
+
+        for c, sigma in enumerate(self.sigmas):
+            self.if_print = False
+
+            if c % print_interval == 0:
+                self.if_print = True
+                self.print_args = {
+                    "c": c,
+                    "save_dir": kwargs.get("save_dir")
+                }
+
+
+        
+
+    def init_x_mod(self):
+        B, T, C, H, W = self.measurement.shape
+        measurement = self.measurement.reshape(-1, C, H, W)  # (BT, C, H, W)
+        x_mod = self.linear_tfm.conj_op(measurement)
+        x_mod = x_mod.reshape(B, T, C, H, W)
+
+        return x_mod
+    
+    def spatial_step(self):
+        pass
+
+    def temporal_step(self):
+        pass
+    
+    def _screen_shot(self, x_mod, print_args: dict):
+        """
+        x_mod: (B, T, C, H, W)
+        print_args: keys: c, save_dir
+
+        Screenshots: first batch: first image; left corner and center temporal slices (first image channel);
+            all in magnitude-phase format
+        """
+        B, T, C, H, W = x_mod.shape
+        save_dir = os.path.join(print_args["save_dir"], "screenshots/")
+        vis_images(torch.abs(x_mod[0, 0]), torch.angle(x_mod[0, 0]), if_save=True, save_dir=save_dir, 
+                   filename=f"step_{print_args['c']}_spatial.png")
+        h_center, w_center = H // 2, W // 2
+        x_mod_temporal_slice = x_mod[0, :, 0, ...].unsqueeze(0)  # (T, H, W) -> (1, T, H, W)
+        left_corner = x_mod_temporal_slice[:, :, 0:self.win_size, 0:self.win_size]  # (1, T, kx, ky)
+        center = x_mod_temporal_slice[:, :, h_center:h_center + self.win_size, w_center:w_center + self.win_size]  # (1, T, kx, ky)
+        left_corner = reshape_temporal_dim(left_corner, self.win_size, self.win_size)  # (1, kx * ky, T)
+        center = reshape_temporal_dim(center, self.win_size, self.win_size)  # (1, kx * ky, T)
+        
+        vis_multi_channel_signal(torch.abs(left_corner), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_mag.png")
+        vis_multi_channel_signal(torch.angle(left_corner), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_phase.png")
+        vis_multi_channel_signal(torch.abs(center), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_mag.png")
+        vis_multi_channel_signal(torch.abs(center), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_phase.png")
