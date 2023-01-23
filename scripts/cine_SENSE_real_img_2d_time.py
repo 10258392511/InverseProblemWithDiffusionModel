@@ -64,8 +64,6 @@ if __name__ == '__main__':
     img = img.permute(1, 0, 2, 3).to(device)  # (T, 1, H, W)
 
     scorenet = reload_model("Diffusion", ds_name, mode)
-    # scorenet_T = None
-    # if args_dict["mode_T"] == "diffusion1d":
     scorenet_T = reload_model("Diffusion1D", f"{ds_name}_1D", mode)
     ALD_sampler_params = {
         "n_steps_each": config_spatial.sampling.n_steps_each,

@@ -337,7 +337,7 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
 
 
 def add_phase(imgs: torch.Tensor, init_shape=(5, 5), seed=None):
-    # imgs: (B, C, H, W)
+    # imgs: (B, C, H, W) or (T, C, H, W)
     if seed is not None:
         torch.manual_seed(seed)
     B, C, H, W = imgs.shape

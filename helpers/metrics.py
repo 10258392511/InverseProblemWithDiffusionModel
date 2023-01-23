@@ -95,7 +95,8 @@ def compute_mean_and_std(imgs: np.ndarray):
 def compute_snr(imgs: np.ndarray):
     # img: (B, C, H, W), assuming positive magnitude
     imgs = np.abs(imgs)
-    snr = imgs.max(axis=(1, 2, 3)) / np.std(imgs, axis=(1, 2, 3))  # (B,)
+    axes = tuple(range(1, len(imgs.shape)))
+    snr = imgs.max(axis=axes) / np.std(imgs, axis=axes)  # (B,)
     snr = 20 * np.log10(snr)
 
     return snr

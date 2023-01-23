@@ -12,7 +12,8 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 from torchvision.utils import make_grid
 from InverseProblemWithDiffusionModel.configs.general_configs import general_config
 from datetime import datetime
-from typing import Union
+from typing import Union, List
+from PIL import Image
 
 
 def expand_like(X_in, X_mimic):
@@ -349,3 +350,35 @@ def reshape_temporal_dim(x: torch.Tensor, kx, ky, direction="forward", img_size=
         x_out = x_out.permute(0, 3, 1, 2)  # (N, T, H, W)
 
         return x_out
+
+
+def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filename: str, **kwargs):
+    # vol: (T, C, H, W)
+    assert ".gif" in filename
+    T, C, H, W = vol.shape
+    duration = kwargs.get("duration", T)
+    loop = kwargs.get("loop", 0)
+    assert C in [1, 3]
+    save_path = os.path.join(save_dir, filename)
+    if isinstance(vol, torch.Tensor):
+        vol = ptu.to_numpy(vol)
+
+    vol = (vol * 255).astype(np.uint8)
+    if C == 1:
+        vol = vol[:, 0, ...]  # (T, H, W)
+    else:
+        vol = np.transpose(vol, axes=(0, 2, 3, 1))  # (T, H, W, C)
+
+    imgs = [Image.fromarray(vol[t, ...]) for t in range(vol.shape[0])]
+    imgs[0].save(save_path, save_all=True, append_images=imgs[1:], duration=duration, loop=loop)
+
+
+def normalize_phase(x_phase: Union[torch.Tensor, np.ndarray]):
+    if isinstance(x_phase, torch.Tensor):
+        pi=  torch.pi
+    else:
+        pi = np.pi
+
+    x_phase = (x_phase - pi) / (2 * pi)
+
+    return x_phase
