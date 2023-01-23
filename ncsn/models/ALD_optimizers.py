@@ -340,6 +340,7 @@ class ALD2DTime(ALDOptimizer):
         sigmas_T_interp_len = (self.sigmas <= sigmas_T[0]).sum()
         self.sigmas_T = torch.ones_like(self.sigmas) * (-1)
         self.sigmas_T[-sigmas_T_interp_len:] = F.interpolate(sigmas_T.view(1, 1, -1), sigmas_T_interp_len, mode="nearest").squeeze()  # (T', 1, 1) -> (T',)
+        self.scorenet_T.sigmas = self.sigmas_T
         self.win_size = np.sqrt(self.scorenet_T.config.data.channels).astype(int)
         self.finite_diff = None
         self.if_print = False
@@ -459,13 +460,17 @@ class ALD2DTime(ALDOptimizer):
 
             grad_real = self.scorenet_T(x_mod_real, labels)  # (B', kx * ky, T)
             grad_imag = self.scorenet_T(x_mod_imag, labels)
-            step_size *= lamda_T
+            
+            step_size = step_size * lamda_T
             noise_real = torch.randn_like(x_mod_real)
             noise_imag = torch.randn_like(x_mod_imag)
+
             x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
             x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
 
+            
             x_mod = reshape_temporal_dim(x_mod_real + 1j * x_mod_imag, self.win_size, self.win_size, "backward", img_size=(H, W))  # (BC, T, H, W)
+
             x_mod = x_mod.reshape(B, C, T, H, W).permute(0, 2, 1, 3, 4)  # (B, C, T, H, W) -> (B, T, C, H, W)
     
         return x_mod

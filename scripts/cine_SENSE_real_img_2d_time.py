@@ -148,8 +148,8 @@ if __name__ == '__main__':
     vis_images(torch.abs(img_out[0, 0]), torch.angle(img_out[0, 0]), if_save=True, save_dir=args_dict["save_dir"], filename=filename)
 
     # img_out: (B, T, 1, H, W), measurement: (num_sens, B, T, 1, H, W)
-    img_out_reshaped = img_out.reshape(-1, img_out.shape[2:])  # (BT, 1, H, W)
-    measurement_reshaped = measurement.reshape(measurement.shape[0], -1, measurement.shape[3:])  # (num_sens, BT, 1, H, W)
+    img_out_reshaped = img_out.reshape(-1, *img_out.shape[2:])  # (BT, 1, H, W)
+    measurement_reshaped = measurement.reshape(measurement.shape[0], -1, *measurement.shape[3:])  # (num_sens, BT, 1, H, W)
     l2_error = torch.sum(torch.abs(linear_tfm(img_out_reshaped).detach().cpu() - measurement_reshaped.detach().cpu()) ** 2,
                          dim=(1, 2, 3)).mean().item()
     print("-" * 100)
