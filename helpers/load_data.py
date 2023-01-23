@@ -271,14 +271,18 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
 
 
 def load_config(ds_name, mode="real-valued", device=None, **kwargs):
+    """
+    kwargs: flatten_type
+    """
     assert mode in ["real-valued", "mag", "complex", "real-imag", "real-imag-random"]
     assert ds_name in REGISTERED_DATA_CONFIG_FILENAME.keys()
     if device is None:
         device = ptu.DEVICE
 
-    flatten_type = kwargs.get("flatten_type", "spatial")
-    if "CINE" in ds_name and flatten_type == "temporal":
-        ds_name = f"{ds_name}_1D"
+    # flatten_type = kwargs.get("flatten_type", "spatial")
+    # if "CINE" in ds_name and flatten_type == "temporal":
+    # # if "CINE" in ds_name:
+    #     ds_name = f"{ds_name}_1D"
 
     config_path = REGISTERED_DATA_CONFIG_FILENAME[ds_name]
     config_namespace = load_yml_file(config_path)

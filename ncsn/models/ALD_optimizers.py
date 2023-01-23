@@ -16,7 +16,7 @@ from InverseProblemWithDiffusionModel.helpers.utils import (
     vis_multi_channel_signal
 )
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import i2k_complex, k2i_complex
-from InverseProblemWithDuffusionModel.ncsn.linear_transforms.finite_diff import FiniteDiff
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms.finite_diff import FiniteDiff
 
 
 def get_lh_weights(sigmas, start_time, curve_type="linear"):
@@ -329,13 +329,17 @@ class ALDInvSegProximalRealImag(ALDOptimizer):
 class ALD2DTime(ALDOptimizer):
     def __init__(self, proximal: Proximal, scorenet_T, sigmas_T, *args, **kwargs):
         """
+        params: n_steps_each, step_lr
+
         x_mod_shape: (B, T, C, H, W)
         measurement: (num_sens, B, T, C, H, W)
         """
         super(ALD2DTime, self).__init__(*args, **kwargs)
         self.proximal = proximal
         self.scorenet_T = scorenet_T
-        self.sigmas_T = F.interpolate(sigmas_T.view(1, 1, -1), self.sigmas.shape[0], mode="nearest").squeeze()  # (T,)
+        sigmas_T_interp_len = (self.sigmas <= sigmas_T[0]).sum()
+        self.sigmas_T = torch.ones_like(self.sigmas) * (-1)
+        self.sigmas_T[-sigmas_T_interp_len:] = F.interpolate(sigmas_T.view(1, 1, -1), sigmas_T_interp_len, mode="nearest").squeeze()  # (T', 1, 1) -> (T',)
         self.win_size = np.sqrt(self.scorenet_T.config.data.channels).astype(int)
         self.finite_diff = None
         self.if_print = False
@@ -343,7 +347,7 @@ class ALD2DTime(ALDOptimizer):
 
     def __call__(self, **kwargs):
         """
-        kwargs: label, lamda, save_dir, lr_scaled, mode_T: ["tv", "diffusion1d"], lamda_T: weighting for temporal step, 
+        kwargs: save_dir, lr_scaled, mode_T: ["tv", "diffusion1d", "none"], lamda_T: weighting for temporal step, 
         """
         torch.set_grad_enabled(False)
         ### inserting pt ###
@@ -358,6 +362,7 @@ class ALD2DTime(ALDOptimizer):
 
         for c in range(self.sigmas.shape[0]):
             print(f"current: {c + 1}/{self.sigmas.shape[0]}")
+            print(f"sigma: {self.sigmas[c]}, sigma_T: {self.sigmas_T[c]}")
             self.if_print = False
 
             if c % print_interval == 0:
@@ -367,12 +372,9 @@ class ALD2DTime(ALDOptimizer):
                     "save_dir": kwargs.get("save_dir")
                 }
            
-            labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
-            labels = labels.long()
-
             for s in range(self.params["n_steps_each"]):
                 # spatial_step
-                x_mod = self.spatial_step(x_mod, c, labels)
+                x_mod = self.spatial_step(x_mod, c)
                 ###########################################
                 x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
                 print("after spatial: ")
@@ -383,7 +385,7 @@ class ALD2DTime(ALDOptimizer):
                 # temporal_step
                 mode_T = kwargs.get("mode_T", "diffusion1d")
                 lamda_T = kwargs.get("lamda_T", 1.)
-                x_mod = self.temporal_step(x_mod, c, labels, mode_T, lamda_T)
+                x_mod = self.temporal_step(x_mod, c, mode_T, lamda_T)
                 ###########################################
                 x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
                 print("after temporal: ")
@@ -410,10 +412,12 @@ class ALD2DTime(ALDOptimizer):
 
         return x_mod
     
-    def spatial_step(self, x_mod, c, labels):
+    def spatial_step(self, x_mod, c):
         # x_mod: (B, T, C, H, W), labels: (B,)
         B, T, C, H, W = x_mod.shape
         x_mod = x_mod.reshape(-1, C, H, W)  # (BT, C, H, W)
+        labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
+        labels = labels.long()
         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
         step_size = self.params["step_lr"] * (self.sigmas[c] / self.sigmas[-1]) ** 2
 
@@ -428,7 +432,7 @@ class ALD2DTime(ALDOptimizer):
         
         return x_mod
         
-    def temporal_step(self, x_mod, c, labels, mode_T, lamda_T):
+    def temporal_step(self, x_mod, c, mode_T, lamda_T):
         # x_mod: (B, T, C, H, W), labels: (B,)
         # TV_t
         if mode_T == "tv":
@@ -436,21 +440,26 @@ class ALD2DTime(ALDOptimizer):
                 self.finite_diff = FiniteDiff(dims=1)
             x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
             x_mod_real = x_mod_real + self.finite_diff.log_lh_grad(x_mod_real, lamda=lamda_T)
-            x_mod_imag = x_mod_imag + self.finite_diff.log_lh_grad(x_mod_real, lamda=lamda_T)
+            x_mod_imag = x_mod_imag + self.finite_diff.log_lh_grad(x_mod_imag, lamda=lamda_T)
 
             x_mod = x_mod_real + 1j * x_mod_imag
 
         # scorenet_T
         elif mode_T == "diffusion1d":
+            if self.sigmas_T[c] == -1:
+                return x_mod
             B, T, C, H, W = x_mod.shape
             x_mod = x_mod.permute(0, 2, 1, 3, 4)  # (B, C, T, H, W)
             x_mod = x_mod.reshape(-1, T, H, W)  # (BC, T, H, W)
             x_mod = reshape_temporal_dim(x_mod, self.win_size, self.win_size, "forward")  # (B', kx * ky, T)
+            labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
+            labels = labels.long()
             x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
-            step_size = self.params["step_lr"] * (self.sigmas_T[c] / self.sigmas[-1]) ** 2
+            step_size = self.params["step_lr"] * (self.sigmas_T[c] / self.sigmas_T[-1]) ** 2
 
-            grad_real = self.scorenet(x_mod_real, labels) * lamda_T  # (B', kx * ky, T)
-            grad_imag = self.scorenet(x_mod_imag, labels) * lamda_T
+            grad_real = self.scorenet_T(x_mod_real, labels)  # (B', kx * ky, T)
+            grad_imag = self.scorenet_T(x_mod_imag, labels)
+            step_size *= lamda_T
             noise_real = torch.randn_like(x_mod_real)
             noise_imag = torch.randn_like(x_mod_imag)
             x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
@@ -466,7 +475,7 @@ class ALD2DTime(ALDOptimizer):
         B, T, C, H, W = x_mod.shape
         x_mod = x_mod.reshape(-1, C, H, W)  # (BT, C, H, W)
         num_sens = self.measurement.shape[0]
-        measurement = self.measurement.reshape(num_sens, -1, *self.measurement.shape[2:])  # (num_sens, BT, C, H, W)
+        measurement = self.measurement.reshape(num_sens, -1, *self.measurement.shape[3:])  # (num_sens, BT, C, H, W)
         coeff = alpha * lr_scaled
         print(f"coeff: {coeff}")
         x_mod = self.proximal(x_mod, measurement, coeff, 1.)  # (BT, C, H, W)
@@ -479,21 +488,23 @@ class ALD2DTime(ALDOptimizer):
         x_mod: (B, T, C, H, W)
         print_args: keys: c, save_dir
 
-        Screenshots: first batch: first image; left corner and center temporal slices (first image channel);
+        Screenshots: first batch: first image; upper-left corner and center temporal slices (first image channel);
             all in magnitude-phase format
         """
         B, T, C, H, W = x_mod.shape
-        save_dir = os.path.join(print_args["save_dir"], "screenshots/")
+        save_dir = print_args.get("init_vis_dir", None)
+        if save_dir is None:
+            save_dir = os.path.join(print_args["save_dir"], "screenshots/")
         vis_images(torch.abs(x_mod[0, 0]), torch.angle(x_mod[0, 0]), if_save=True, save_dir=save_dir, 
                    filename=f"step_{print_args['c']}_spatial.png")
         h_center, w_center = H // 2, W // 2
         x_mod_temporal_slice = x_mod[0, :, 0, ...].unsqueeze(0)  # (T, H, W) -> (1, T, H, W)
-        left_corner = x_mod_temporal_slice[:, :, 0:self.win_size, 0:self.win_size]  # (1, T, kx, ky)
+        upper_left_corner = x_mod_temporal_slice[:, :, 0:self.win_size, 0:self.win_size]  # (1, T, kx, ky)
         center = x_mod_temporal_slice[:, :, h_center:h_center + self.win_size, w_center:w_center + self.win_size]  # (1, T, kx, ky)
-        left_corner = reshape_temporal_dim(left_corner, self.win_size, self.win_size)  # (1, kx * ky, T)
+        upper_left_corner = reshape_temporal_dim(upper_left_corner, self.win_size, self.win_size)  # (1, kx * ky, T)
         center = reshape_temporal_dim(center, self.win_size, self.win_size)  # (1, kx * ky, T)
         
-        vis_multi_channel_signal(torch.abs(left_corner), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_mag.png")
-        vis_multi_channel_signal(torch.angle(left_corner), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_phase.png")
-        vis_multi_channel_signal(torch.abs(center), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_mag.png")
-        vis_multi_channel_signal(torch.abs(center), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_left_corner_phase.png")
+        vis_multi_channel_signal(torch.abs(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_mag.png")
+        vis_multi_channel_signal(torch.angle(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_phase.png")
+        vis_multi_channel_signal(torch.abs(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_mag.png")
+        vis_multi_channel_signal(torch.abs(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_phase.png")

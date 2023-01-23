@@ -66,3 +66,9 @@ optim:
   beta1: 0.9
   amsgrad: false
   eps: 0.001
+
+recons:
+  sigma_dist: geometric
+  sigma_begin: 10
+  num_classes: 100
+  sigma_end: 0.01

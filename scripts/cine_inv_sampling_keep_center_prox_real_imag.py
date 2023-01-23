@@ -52,7 +52,7 @@ if __name__ == '__main__':
     config = load_config(ds_name, mode, device)
     ds = load_data(ds_name, "val")
     data = ds[args_dict["ds_idx"]]
-    # (1, H, W), (1, H, W)
+    # ((1, H, W),)
     img = data[0]
     img = img.unsqueeze(0).to(device)  # (1, 1, H, W)
 

@@ -33,6 +33,7 @@ if __name__ == '__main__':
     device = ptu.DEVICE
 
     config = load_config(args_dict["ds_name"], args_dict["mode"], device)
+    print(config.model.num_classes)
     scorenet = reload_model(args_dict["task_name"], args_dict["ds_name"], args_dict["mode"])
     ALD_sampler_params = {
         "n_steps_each": args_dict["num_steps_each"],
