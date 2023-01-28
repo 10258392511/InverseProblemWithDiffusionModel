@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+import einops
 import abc
+import os
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from torch.utils.tensorboard import SummaryWriter
@@ -8,6 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
 from InverseProblemWithDiffusionModel.ncsn.regularizers import AbstractRegularizer
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
+from InverseProblemWithDiffusionModel.helpers.utils import reshape_temporal_dim, save_vol_as_gif, normalize_phase
 from tqdm import trange
 from typing import Any, Union
 
@@ -83,7 +86,6 @@ class MAPOptimizer(object):
     def _step(self, x, iter):
         grad_data = self.linear_tfm.log_lh_grad(x, self.measurement, 1.)  # (1, C, H, W)
         grad_prior = self.scorenet(x, self.sigma) * self.sigma_val  # (1, C, H, W)
-        # grad_prior = self.scorenet(x, self.sigma)  # (1, C, H, W)
         grad = grad_data + self.lamda * grad_prior
         x += grad * self.lr  # maximizing log posterior
 
@@ -124,3 +126,97 @@ class UndersamplingFourier(MAPOptimizer):
         self.logger.add_scalar("grad_prior", torch.norm(grad_prior).item(), global_step=iter)
 
         return x
+
+
+class MAPOptimizer2DTime(object):
+    def __init__(self, x_init: torch.Tensor, measurement: torch.Tensor, scorenet_S: nn.Module, scorenet_T: nn.Module, linear_tfm: LinearTransform, logger: SummaryWriter, params: dict):
+        """
+        x_init: (B, T, C, H, W), complex, already sent to "device"
+        measurement: (num_sens, B, T, C, H, W)
+
+        params: lr, opt_class, (device), num_iters, num_plot_times, win_size, prior_weight, spatial_step_weight, temporal_step_weight, save_dir
+        """
+        self.params = params
+        # self.x = torch.zeros_like(x_init)
+        self.x = x_init
+        self.measurement = measurement
+        self.scorenet_S = scorenet_S
+        self.scorenet_T = scorenet_T
+        self.linear_tfm = linear_tfm
+        device = params.get("device", None)
+        self.device = ptu.DEVICE if device is None else device
+        self.logger = logger
+        self.opt = self.params["opt_class"]([self.x], lr=self.params["lr"])
+        self.plot_interval = self.params["num_iters"] // self.params["num_plot_times"]
+    
+    @torch.no_grad()
+    def __call__(self):
+        pbar = trange(self.params["num_iters"], desc="optimizing")
+        save_dir = os.path.join(self.params["save_dir"], "screenshots/")
+        for iter in pbar:
+            # all grad_*: (B, T, C, H, W) 
+            grad_data, data_error = self.data_step()
+            self.opt.zero_grad()
+            grad_S = self.spatial_step()
+            grad_T = self.temporal_step()
+            
+            grad = grad_data + self.params["prior_weight"] * (self.params["spatial_step_weight"] * grad_S + self.params["temporal_step_weight"] * grad_T)
+            self.x.grad = -grad
+            self.opt.step()
+
+            # logging
+            self.logger.add_scalar("data_error", data_error.item(), global_step=iter)
+            self.logger.add_scalar("grad_data", torch.norm(grad_data).item(), global_step=iter)
+            self.logger.add_scalar("grad_S", torch.norm(grad_S).item(), global_step=iter)
+            self.logger.add_scalar("grad_T", torch.norm(grad_T).item(), global_step=iter)
+            pbar.set_description(f"data_error: {data_error.item()}")
+
+            if iter % self.plot_interval == 0:
+                # only save the first batch
+                save_vol_as_gif(torch.abs(self.x[0]), save_dir=save_dir, filename=f"mag_{iter + 1}.gif")
+                save_vol_as_gif(normalize_phase(torch.angle(self.x[0])), save_dir=save_dir, filename=f"phase_{iter + 1}.gif")
+
+        return self.get_reconstruction()
+
+    def data_step(self):
+        B, T, C, H, W = self.x.shape
+        x = einops.rearrange(self.x, "B T C H W -> (B T) C H W")  # (BT, C, H, W)
+        measurement = einops.rearrange(self.measurement, "num_sens B T C H W -> num_sens (B T) C H W")  # (num_sens, BT, C, H, W)
+        grad = self.linear_tfm.log_lh_grad(x, measurement)  # (BT, C, H, W)
+        grad = einops.rearrange(grad, "(B T) C H W -> B T C H W", T=T)
+        data_error = 0.5 * ((torch.abs(self.linear_tfm(x) - measurement) ** 2).sum(dim=(1, 2, 3)).mean())
+
+        return grad, data_error
+
+    def spatial_step(self):
+        B, T, C, H, W = self.x.shape
+        x = einops.rearrange(self.x, "B T C H W -> (B T) C H W")  # (BT, C, H, W)
+        labels = torch.ones(x.shape[0], device=self.device).long()
+        x_real, x_imag = torch.real(x), torch.imag(x)
+        grad_real = self.scorenet_S(x_real, labels)
+        grad_imag = self.scorenet_S(x_imag, labels)
+        grad = grad_real + 1j * grad_imag
+        grad = einops.rearrange(grad, "(B T) C H W -> B T C H W", T=T)
+
+        return grad
+
+    def temporal_step(self):
+        B, T, C, H, W = self.x.shape
+        x = einops.rearrange(self.x, "B T C H W -> (B C) T H W")  # (BC, T, H, W)
+        x = reshape_temporal_dim(x, self.params["win_size"], self.params["win_size"], "forward")  # (B', kx * ky, T)
+        labels = torch.ones(x.shape[0], device=self.device).long()
+        x_real, x_imag = torch.real(x), torch.imag(x)
+        grad_real = self.scorenet_T(x_real, labels)
+        grad_imag = self.scorenet_T(x_imag, labels)
+        grad = grad_real + 1j * grad_imag
+        grad = reshape_temporal_dim(grad, self.params["win_size"], self.params["win_size"], "backward", img_size=(H, W))  # (BC, T, H, W)
+        # print(f"grad_T shape: {grad.shape}")
+        # print("-" * 100)
+        grad = einops.rearrange(grad, "(B C) T H W -> B T C H W", C=C)
+
+        return grad
+
+    def get_reconstruction(self):
+
+        return self.x.detach().cpu()
+        

@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.optim as optim
+import einops
 import os
 import SimpleITK as sitk
 import yaml
@@ -331,10 +332,11 @@ def reshape_temporal_dim(x: torch.Tensor, kx, ky, direction="forward", img_size=
     if direction == "forward":
         N, T, H, W = x.shape
         assert H % kx == 0 and W % ky == 0
-        x_out = x.permute(0, 2, 3, 1)  # (N, H, W, T)
-        x_out = x_out.reshape(N, H // kx, kx, W // ky, ky, T)  # (N, H // kx, kx, W // ky, ky, T)
-        x_out = x_out.permute(0, 1, 3, 2, 4, 5)  # (N, H // kx, W // ky, kx, ky, T)
-        x_out = x_out.reshape(-1, kx * ky , T)  # (N', kx * ky, T)
+        # x_out = x.permute(0, 2, 3, 1)  # (N, H, W, T)
+        # x_out = x_out.reshape(N, H // kx, kx, W // ky, ky, T)  # (N, H // kx, kx, W // ky, ky, T)
+        # x_out = x_out.permute(0, 1, 3, 2, 4, 5)  # (N, H // kx, W // ky, kx, ky, T)
+        # x_out = x_out.reshape(-1, kx * ky , T)  # (N', kx * ky, T)
+        x_out = einops.rearrange(x, "N T (H1 kx) (W1 ky) -> (N H1 W1) (kx ky) T", kx=kx, ky=ky)
 
         return x_out
     
@@ -344,16 +346,27 @@ def reshape_temporal_dim(x: torch.Tensor, kx, ky, direction="forward", img_size=
         assert H % kx == 0 and W % ky == 0
         N_out, C, T = x.shape
         assert C == kx * ky
-        x_out = x.reshape(-1, H // kx, W // ky, kx, ky, T)  # (N, H // kx, W // ky, kx, ky, T)
-        x_out = x_out.permute(0, 1, 3, 2, 4, 5)  # (N, H // kx, kx, W // ky, ky, T)
-        x_out = x_out.reshape(-1, H, W, T)  # (N, H, W, T)
-        x_out = x_out.permute(0, 3, 1, 2)  # (N, T, H, W)
+        # x_out = x.reshape(-1, H // kx, W // ky, kx, ky, T)  # (N, H // kx, W // ky, kx, ky, T)
+        # x_out = x_out.permute(0, 1, 3, 2, 4, 5)  # (N, H // kx, kx, W // ky, ky, T)
+        # x_out = x_out.reshape(-1, H, W, T)  # (N, H, W, T)
+        # x_out = x_out.permute(0, 3, 1, 2)  # (N, T, H, W)
+        x_out = einops.rearrange(x, "(N H1 W1) (kx ky) T -> N T (H1 kx) (W1 ky)", H1=H // kx, W1=W // ky, kx=kx, ky=ky)
 
         return x_out
 
 
 def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filename: str, **kwargs):
-    # vol: (T, C, H, W)
+    """
+    vol: (T, C, H, W)
+
+    kwargs: duration
+    """
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+    if isinstance(vol, torch.Tensor):
+        vol = ptu.to_numpy(vol)
+        
     assert ".gif" in filename
     T, C, H, W = vol.shape
     duration = kwargs.get("duration", T)

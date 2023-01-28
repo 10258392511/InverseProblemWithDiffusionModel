@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import scipy.io as sio
+import einops
 import os
 import glob
 import random
@@ -21,7 +22,7 @@ from monai.transforms import (
 from monai.data import CacheDataset
 from monai.data import Dataset as m_Dataset
 from monai.utils import CommonKeys
-from torch.utils.data import TensorDataset
+from torch.utils.data import TensorDataset, Dataset
 from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import Compose, ToTensor, Normalize, Resize
 from monai.transforms import Resize as monai_Resize
@@ -327,6 +328,7 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
         batch = [torch.real(batch), torch.imag(batch)]
     
     if batch_dim == 3:
+        # (B, 1, C, T) -> (B, C, T)
         if isinstance(batch, list):
             for i in range(len(batch)):
                 batch[i] = batch[i].squeeze()
@@ -336,17 +338,46 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
     return batch
 
 
-def add_phase(imgs: torch.Tensor, init_shape=(5, 5), seed=None):
+def add_phase(imgs: torch.Tensor, init_shape: Union[tuple, int] = (5, 5), seed=None, mode="spatial"):
     # imgs: (B, C, H, W) or (T, C, H, W)
+    assert mode in ["spatial", "2D+time"]
     if seed is not None:
         torch.manual_seed(seed)
-    B, C, H, W = imgs.shape
-    imgs_out = torch.empty_like(imgs, dtype=torch.complex64)
-    for i in range(B):
-        img_iter = imgs[i, ...]  # (C, H, W)
-        phase_init_patch = torch.randn(C, *init_shape, device=img_iter.device)
-        resizer = monai_Resize((H, W), mode="bicubic", align_corners=True)
-        phase = resizer(phase_init_patch)  # (C, H, W)
-        imgs_out[i, ...] = img_iter * torch.exp(1j * phase)
+    imgs_out = imgs
+    if mode == "spatial":
+        # add smooth phase for each spatial slice
+        B, C, H, W = imgs.shape
+        imgs_out = torch.empty_like(imgs, dtype=torch.complex64)
+        for i in range(B):
+            img_iter = imgs[i, ...]  # (C, H, W)
+            phase_init_patch = torch.randn(C, *init_shape, device=img_iter.device)
+            resizer = monai_Resize((H, W), mode="bicubic", align_corners=True)
+            phase = resizer(phase_init_patch)  # (C, H, W)
+            imgs_out[i, ...] = img_iter * torch.exp(1j * phase)
+    elif mode == "2D+time":
+        # use 3D phase map for each channel for (T, C, H, W)
+        assert len(init_shape) == 3
+        T, C, H, W = imgs.shape
+        phase = torch.randn(C, *init_shape, device=imgs.device)  # e.g. (init_x, init_y, init_z)
+        resizer = monai_Resize((T, H, W), mode="trilinear", align_corners=True)
+        phase = resizer(phase)  # (C, T, H, W)
+        imgs_out = imgs * torch.exp(1j * einops.rearrange(phase, "C T H W -> T C H W"))
 
     return imgs_out
+
+
+def compute_max_euclidean_dist(ds: Dataset, num_pairs=10 ** 3):
+    max_dist = 0
+    for _ in range(num_pairs):
+        i, j = torch.randint(0, len(ds), (2,))
+        if isinstance(ds[i], tuple):
+            dist = torch.norm(ds[i][0] - ds[j][0])
+        elif isinstance(ds[i], dict):
+            dist = torch.norm(ds[i][CommonKeys.IMAGE] - ds[j][CommonKeys.IMAGE])
+        else:
+            dist = torch.norm(ds[i] - ds[j])
+        
+        if dist > max_dist:
+            max_dist = dist
+    
+    return max_dist
