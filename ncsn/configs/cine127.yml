@@ -48,8 +48,8 @@ data:
   num_workers: 8
 
 model:
-  sigma_begin: 348
-  num_classes: 2311
+  sigma_begin: 60
+  num_classes: 1000
   ema: true
   ema_rate: 0.999
   spec_norm: false

@@ -19,8 +19,8 @@ if __name__ == '__main__':
     python scripts/train_ncsn.py --ds_name ACDC --task_name Diffusion --mode complex
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ds_name", required=True)
-    parser.add_argument("--task_name", required=True)
+    parser.add_argument("--ds_name", required=True)  # CINE64 or CINE 127, "1D" will be appended later
+    parser.add_argument("--task_name", required=True)  # Diffusion or Diffusion1D
     parser.add_argument("--mode", required=True)
     parser.add_argument("--flatten_type", default="spatial")
     parser.add_argument("--num_workers", type=int, default=16)
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     if "CINE" in args["ds_name"] and args["flatten_type"] == "temporal":
         train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"])
         val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"])
+        ds_name = f"{ds_name}_1D"
     else:
         train_ds = load_data(ds_name, "train", if_aug=False)
         val_ds = load_data(ds_name, "val", if_aug=False)
@@ -44,6 +45,8 @@ if __name__ == '__main__':
         "val": val_ds
     }
     config = load_config(ds_name, mode=mode, flatten_type=args["flatten_type"])
+    print(f"batch_size: {config.training.batch_size}")
+    print("-" * 100)
     model = load_model(config, task_name)
     params = {
         "batch_size": config.training.batch_size,
