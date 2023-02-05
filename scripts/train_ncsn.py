@@ -7,6 +7,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 import argparse
+import numpy as np
 
 from InverseProblemWithDiffusionModel.helpers.load_data import load_data, load_config
 from InverseProblemWithDiffusionModel.helpers.pl_helpers import TrainScoreModelDiscrete, get_score_model_trainer
@@ -33,9 +34,11 @@ if __name__ == '__main__':
     log_dir = "./"
     log_name = "ncsn_logs"
 
+    config = load_config(f"{ds_name}_1D", mode=mode, flatten_type=args["flatten_type"])
     if "CINE" in args["ds_name"] and args["flatten_type"] == "temporal":
-        train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"])
-        val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"])
+        win_size = int(np.sqrt(config.data.channels))
+        train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size)
+        val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size)
         ds_name = f"{ds_name}_1D"
     else:
         train_ds = load_data(ds_name, "train", if_aug=False)
@@ -44,7 +47,6 @@ if __name__ == '__main__':
         "train": train_ds,
         "val": val_ds
     }
-    config = load_config(ds_name, mode=mode, flatten_type=args["flatten_type"])
     print(f"batch_size: {config.training.batch_size}")
     print("-" * 100)
     model = load_model(config, task_name)
@@ -70,6 +72,11 @@ if __name__ == '__main__':
     if not os.path.isdir(log_dir_full):
         os.makedirs(log_dir_full)
 
+    args.update({
+        "num_channels": config.data.channels,
+        "sigma_begin": config.model.sigma_begin,
+        "num_classes": config.model.num_classes
+    })
     with open(f"{log_dir_full}/desc.txt", "w") as wf:
         for key, val in args.items():
             wf.write(f"{key}: {val}\n")
