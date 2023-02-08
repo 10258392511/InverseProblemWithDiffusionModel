@@ -111,13 +111,14 @@ def vis_images(*images, **kwargs):
 def vis_signals(*signals, **kwargs):
     """
     signals: list[(C, T)]
-    kwargs: if_save, save_dir, filename, titles
+    kwargs: if_save, save_dir, filename, titles, ylim
     """
     num_imgs = len(signals)
     fig, axes = plt.subplots(num_imgs, 1, figsize=(general_config.figsize_unit * 3, general_config.figsize_unit * num_imgs))
     if num_imgs == 1:
         axes = [axes]
     titles = kwargs.get("titles", None)
+    ylim = kwargs.get("ylim", [-1, 1])
     if titles is not None:
         assert len(titles) == len(signals)
     for i, (img_iter, axis) in enumerate(zip(signals, axes)):
@@ -127,6 +128,7 @@ def vis_signals(*signals, **kwargs):
             img_iter = ptu.to_numpy(img_iter)
         img_iter = img_iter[channel]
         handle = axis.plot(img_iter)
+        axis.set_ylim(ylim)
         if titles is not None:
             axis.set_title(titles[i])
 

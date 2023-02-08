@@ -28,16 +28,23 @@ if __name__ == '__main__':
     parser.add_argument("--num_steps_each", type=int, default=3)
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--save_dir", default="../outputs")
+    parser.add_argument("--step_lr", type=float, default=0.0000009)
     args_dict = vars(parser.parse_args())
     args_dict["if_conditioned"] = False
     device = ptu.DEVICE
 
-    config = load_config(args_dict["ds_name"], args_dict["mode"], device)
+    # if "1D" in args_dict["task_name"]:
+    #     config_ds_name = f"{args_dict['ds_name']}_1D"
+    # else:
+    #     config_ds_name = args_dict["ds_name"]
+    # print(config_ds_name)
+    config = load_config(args_dict["ds_name"], args_dict["mode"], device, )
     print(config.model.num_classes)
     scorenet = reload_model(args_dict["task_name"], args_dict["ds_name"], args_dict["mode"])
     ALD_sampler_params = {
         "n_steps_each": args_dict["num_steps_each"],
-        "step_lr": config.sampling.step_lr,
+        # "step_lr": config.sampling.step_lr,
+        "step_lr": args_dict["step_lr"],
         "final_only": config.sampling.final_only,
         "denoise": config.sampling.denoise
     }

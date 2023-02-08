@@ -74,6 +74,7 @@ if __name__ == '__main__':
     ALD_sampler_params["denoise"] = True
     # print(ALD_sampler_params)
     sigmas = get_sigmas(config, mode="recons")
+    print(f"max sigma: {sigmas[0]}")
     x_mod_shape = (
         args_dict["num_samples"],
         config.data.channels,

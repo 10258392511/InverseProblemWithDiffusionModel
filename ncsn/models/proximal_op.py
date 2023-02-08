@@ -17,7 +17,7 @@ class Proximal(object):
 
 
 class L2Penalty(Proximal):
-    def __call__(self, z, y, alpha, lamda, num_steps=5):
+    def __call__(self, z, y, alpha, lamda, num_steps=1):
         """
         x <- argmin_x 1 / 2 * norm(x - z)^2 + 1 / 2 * alpha / lamda * norm(Ax - y)
 

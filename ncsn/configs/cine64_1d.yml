@@ -39,7 +39,7 @@ test:
 data:
   dataset: "CINE64"
   image_size: 32  # T = 25
-  channels: 64  # 4
+  channels: 4  # 4
   logit_transform: false
   uniform_dequantization: false
   gaussian_dequantization: false
@@ -48,8 +48,8 @@ data:
   num_workers: 8
 
 model:
-  sigma_begin: 160  # 348
-  num_classes: 500  # 2311
+  sigma_begin: 10  # 348
+  num_classes: 100  # 2311
   ema: true
   ema_rate: 0.999
   spec_norm: false

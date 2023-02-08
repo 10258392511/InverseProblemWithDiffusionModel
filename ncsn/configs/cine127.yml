@@ -69,6 +69,6 @@ optim:
 
 recons:
   sigma_dist: geometric
-  sigma_begin: 10
-  num_classes: 100
+  sigma_begin: 60
+  num_classes: 1000
   sigma_end: 0.01
