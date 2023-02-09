@@ -509,7 +509,7 @@ class ALD2DTime(ALDOptimizer):
         upper_left_corner = reshape_temporal_dim(upper_left_corner, self.win_size, self.win_size)  # (1, kx * ky, T)
         center = reshape_temporal_dim(center, self.win_size, self.win_size)  # (1, kx * ky, T)
         
-        vis_multi_channel_signal(torch.abs(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_mag.png")
-        vis_multi_channel_signal(torch.angle(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_phase.png")
-        vis_multi_channel_signal(torch.abs(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_mag.png")
-        vis_multi_channel_signal(torch.abs(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_phase.png")
+        vis_multi_channel_signal(torch.real(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_real.png")
+        vis_multi_channel_signal(torch.imag(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_imag.png")
+        vis_multi_channel_signal(torch.real(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_real.png")
+        vis_multi_channel_signal(torch.imag(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_imag.png")

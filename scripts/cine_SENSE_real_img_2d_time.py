@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 import torch
 import pickle
+import time
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from monai.transforms import Resize
@@ -18,7 +19,13 @@ from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.undersampling_fourier import SENSE
 from InverseProblemWithDiffusionModel.ncsn.models.proximal_op import get_proximal
 from InverseProblemWithDiffusionModel.ncsn.models.ALD_optimizers import ALD2DTime
-from InverseProblemWithDiffusionModel.helpers.utils import vis_images, vis_signals, create_filename
+from InverseProblemWithDiffusionModel.helpers.utils import (
+    vis_images, 
+    vis_signals, 
+    create_filename,
+    save_vol_as_gif, 
+    normalize_phase
+)
 
 
 if __name__ == '__main__':
@@ -51,7 +58,9 @@ if __name__ == '__main__':
     device = ptu.DEVICE
 
     config_spatial = load_config(ds_name, mode, device)
+    print(f"config_spatial: {config_spatial.model.num_classes}")
     config_temporal = load_config(f"{ds_name}_1D", mode, device, flatten_type="temporal")
+    print(f"config_temporal: {config_temporal.model.num_classes}")
     ds = load_data(ds_name, "val", if_aug=False, flatten=False)
     data = ds[args_dict["ds_idx"]]
     # ((T0, H0, W0),)
@@ -103,6 +112,8 @@ if __name__ == '__main__':
     measurement = linear_tfm(img_complex.to(torch.complex64))  # (num_sens, T, 1, H, W)
     measurement = measurement.unsqueeze(1)  # (num_sens, 1, T, 1, H, W)
     measurement = measurement.repeat(1, args_dict["num_samples"], 1, 1, 1, 1)  # (num_sens, B, T, 1, H, W)
+    save_vol_as_gif(torch.abs(img_complex), save_dir=args_dict["save_dir"], filename=f"orig_mag.gif")
+    save_vol_as_gif(normalize_phase(torch.angle(img_complex)), save_dir=args_dict["save_dir"], filename=f"orig_phase.gif")
 
     ALD_sampler = ALD2DTime(
         proximal,
@@ -140,7 +151,13 @@ if __name__ == '__main__':
     sys.stderr = log_file
 
     ALD_call_params = dict(save_dir=args_dict["save_dir"], lr_scaled=args_dict["lr_scaled"], mode_T=args_dict["mode_T"], lamda_T=args_dict["lamda_T"])
+    time_start = time.time()
     img_out = ALD_sampler(**ALD_call_params)[0]  # (B, T, 1, H, W)
+    time_end = time.time()
+
+    # save the first batch
+    save_vol_as_gif(torch.abs(img_out[0]), save_dir=args_dict["save_dir"], filename=f"recons_mag.gif")
+    save_vol_as_gif(normalize_phase(torch.angle(img_out[0])), save_dir=args_dict["save_dir"], filename=f"recons_phase.gif")
 
     filename = create_filename(filename_dict, suffix=".png")
     vis_images(torch.abs(img_out[0, 0]), torch.angle(img_out[0, 0]), if_save=True, save_dir=args_dict["save_dir"], filename=filename)
@@ -153,6 +170,7 @@ if __name__ == '__main__':
     print("-" * 100)
     print(args_dict)
     print(f"reconstruction error: {l2_error}")
+    print(f"reconstruction time: {time_end - time_start}")
 
     save_dir = args_dict["save_dir"]
     torch.save(img_complex.detach().cpu(), os.path.join(save_dir, "original.pt"))

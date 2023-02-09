@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import einops
 import pickle
+import time
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from monai.transforms import Resize
@@ -150,7 +151,9 @@ if __name__ == '__main__':
     sys.stdout = log_file
     sys.stderr = log_file
 
+    time_start = time.time()
     img_out = map_optimizer()  # (B, T, C, H, W)
+    time_end = time.time()
 
     # save the first batch
     save_vol_as_gif(torch.abs(img_out[0]), save_dir=args_dict["save_dir"], filename=f"recons_mag.gif")
@@ -164,6 +167,7 @@ if __name__ == '__main__':
     print("-" * 100)
     print(args_dict)
     print(f"reconstruction error: {l2_error}")
+    print(f"reconstruction time: {time_end - time_start}")
 
     save_dir = args_dict["save_dir"]
     torch.save(img_complex.detach().cpu(), os.path.join(save_dir, "original.pt"))
