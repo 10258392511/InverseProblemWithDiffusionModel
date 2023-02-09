@@ -102,11 +102,31 @@ def compute_snr(imgs: np.ndarray):
     return snr
 
 
+def SSIM_wrapper_3D(img: np.ndarray, img_orig: np.ndarray):
+    # img, img_orig: (T, C, H, W)
+    metric_val = ssim(img, img_orig, channel_axis=1)
+
+    return metric_val
+
+
+def NRMSE_wrapper_3D(img: np.ndarray, img_orig: np.ndarray):
+    # img, img_orig: (T, C, H, W)
+    metric_val = normalized_root_mse(img, img_orig, normalization="euclidean")
+
+    return metric_val
+
+
 REGISTERED_METRICS = {
     "L2": mean_squared_error,
     "L1": MAE,
     "SSIM": SSIM_wrapper,
     "NRMSE": NRMSE_wrapper
+}
+
+
+REGISTERED_METRICS_3D = {
+    "SSIM": SSIM_wrapper_3D,
+    "NRMSE": NRMSE_wrapper_3D
 }
 
 
