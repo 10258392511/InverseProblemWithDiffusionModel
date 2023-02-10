@@ -318,7 +318,7 @@ def metric_vs_one_hyperparam(root_dirs: list, metrics: list, param_tune: str, pa
                              orig_filename="original.pt", recons_filename="reconstructions.pt",
                              args_filename="args_dict.pkl", selection_func = None, *args, **kwargs):
     """
-    kwargs: if_logscale_x: bool, save_dir: str, save_filename: str
+    kwargs: if_logscale_x: bool, save_dir: str, save_filename: str, if_compute_metrics_only: bool
     metric_vals: {param: {metric: val...}...}
     """
     def selection(args_dict: dict):
@@ -350,10 +350,17 @@ def metric_vs_one_hyperparam(root_dirs: list, metrics: list, param_tune: str, pa
             args_dict = pickle.load(rf)
         if not selection_func(args_dict):
             continue
+        local_metric_dict = {}
         for metric_iter in metrics:
             assert metric_iter in REGISTERED_METRICS_3D
             metric_func = REGISTERED_METRICS_3D[metric_iter]
             metric_vals[args_dict[param_tune]][metric_iter] = metric_func(np.abs(recons), np.abs(img))
+            local_metric_dict[metric_iter] = metric_vals[args_dict[param_tune]][metric_iter]
+        with open(os.path.join(root_dir_iter, "metrics.txt"), "w") as wf:
+            wf.write(f"{local_metric_dict}")
+
+    if kwargs.get("if_compute_metrics_only", False):
+        return
 
     params = sorted(list(metric_vals.keys()))
     print(f"params:\n{params}")
