@@ -337,6 +337,7 @@ class ALD2DTime(ALDOptimizer):
         super(ALD2DTime, self).__init__(*args, **kwargs)
         self.proximal = proximal
         self.scorenet_T = scorenet_T
+        self.sigmas_T_orig = sigmas_T
         sigmas_T_interp_len = (self.sigmas <= sigmas_T[0]).sum()
         self.sigmas_T = torch.ones_like(self.sigmas) * (-1)
         self.sigmas_T[-sigmas_T_interp_len:] = F.interpolate(sigmas_T.view(1, 1, -1), sigmas_T_interp_len, mode="nearest").squeeze()  # (T', 1, 1) -> (T',)
@@ -348,8 +349,16 @@ class ALD2DTime(ALDOptimizer):
 
     def __call__(self, **kwargs):
         """
-        kwargs: save_dir, lr_scaled, mode_T: ["tv", "diffusion1d", "none"], lamda_T: weighting for temporal step, 
+        kwargs: save_dir, lr_scaled, mode_T: ["tv", "diffusion1d", "none", "diffusion1d-only", "tv-only"], lamda_T: weighting for temporal step, if_random_shift
         """
+        mode_T = kwargs.get("mode_T")
+        if_skip_spatial = False
+        if mode_T in ["diffusion1d-only", "tv-only"]:
+            self.sigmas_T = self.sigmas_T_orig
+            self.scorenet_T.sigmas = self.sigmas_T_orig
+            self.sigmas = self.sigmas_T_orig
+            if_skip_spatial = True
+        # print(f"scorenet_T: {self.scorenet_T.sigmas}, self.sigmas: {self.sigmas}")
         torch.set_grad_enabled(False)
         ### inserting pt ###
         self.preprocessing_steps(**kwargs)
@@ -375,7 +384,7 @@ class ALD2DTime(ALDOptimizer):
            
             for s in range(self.params["n_steps_each"]):
                 # spatial_step
-                x_mod = self.spatial_step(x_mod, c)
+                x_mod = self.spatial_step(x_mod, c, if_skip_spatial)
                 ###########################################
                 x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
                 print("after spatial: ")
@@ -386,7 +395,8 @@ class ALD2DTime(ALDOptimizer):
                 # temporal_step
                 mode_T = kwargs.get("mode_T", "diffusion1d")
                 lamda_T = kwargs.get("lamda_T", 1.)
-                x_mod = self.temporal_step(x_mod, c, mode_T, lamda_T)
+                if_random_shift = kwargs.get("if_random_shift", False)
+                x_mod = self.temporal_step(x_mod, c, mode_T, lamda_T, if_random_shift)
                 ###########################################
                 x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
                 print("after temporal: ")
@@ -413,8 +423,11 @@ class ALD2DTime(ALDOptimizer):
 
         return x_mod
     
-    def spatial_step(self, x_mod, c):
+    def spatial_step(self, x_mod, c, if_skip_spatial):
         # x_mod: (B, T, C, H, W), labels: (B,)
+        if if_skip_spatial:
+            return x_mod
+
         B, T, C, H, W = x_mod.shape
         x_mod = x_mod.reshape(-1, C, H, W)  # (BT, C, H, W)
         labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
@@ -433,10 +446,10 @@ class ALD2DTime(ALDOptimizer):
         
         return x_mod
         
-    def temporal_step(self, x_mod, c, mode_T, lamda_T):
+    def temporal_step(self, x_mod, c, mode_T, lamda_T, if_random_shift):
         # x_mod: (B, T, C, H, W), labels: (B,)
         # TV_t
-        if mode_T == "tv":
+        if "tv" in mode_T:
             if self.finite_diff is None:
                 self.finite_diff = FiniteDiff(dims=1)
             x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
@@ -446,12 +459,17 @@ class ALD2DTime(ALDOptimizer):
             x_mod = x_mod_real + 1j * x_mod_imag
 
         # scorenet_T
-        elif mode_T == "diffusion1d":
+        elif "diffusion1d" in mode_T:
             if self.sigmas_T[c] == -1:
                 return x_mod
             B, T, C, H, W = x_mod.shape
             x_mod = x_mod.permute(0, 2, 1, 3, 4)  # (B, C, T, H, W)
             x_mod = x_mod.reshape(-1, T, H, W)  # (BC, T, H, W)
+            if if_random_shift:
+                shifts_np = np.random.randint(0, self.win_size, (2,))
+                shifts = tuple(shifts_np.tolist())
+                print(f"shifts: {shifts}")
+                x_mod = torch.roll(x_mod, shifts=shifts, dims=(-2, -1))
             x_mod = reshape_temporal_dim(x_mod, self.win_size, self.win_size, "forward")  # (B', kx * ky, T)
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
             labels = labels.long()
@@ -470,6 +488,11 @@ class ALD2DTime(ALDOptimizer):
 
             
             x_mod = reshape_temporal_dim(x_mod_real + 1j * x_mod_imag, self.win_size, self.win_size, "backward", img_size=(H, W))  # (BC, T, H, W)
+            if if_random_shift:
+                shifts = -shifts_np
+                shifts = tuple(shifts.tolist())
+                print(f"shifts back: {shifts}")
+                x_mod = torch.roll(x_mod, shifts=shifts, dims=(-2, -1))
 
             x_mod = x_mod.reshape(B, C, T, H, W).permute(0, 2, 1, 3, 4)  # (B, C, T, H, W) -> (B, T, C, H, W)
     

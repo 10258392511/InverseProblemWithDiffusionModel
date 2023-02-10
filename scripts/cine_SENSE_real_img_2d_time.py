@@ -8,6 +8,7 @@ if path not in sys.path:
 import argparse
 import numpy as np
 import torch
+import einops
 import pickle
 import time
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
@@ -46,8 +47,9 @@ if __name__ == '__main__':
     parser.add_argument("--proximal_type", default="L2Penalty")
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--sens_type", default="exp")
-    parser.add_argument("--mode_T", choices=["tv", "diffusion1d", "none"], default="diffuion1d")
+    parser.add_argument("--mode_T", choices=["tv", "diffusion1d", "none", "diffusion1d-only", "tv-only"], default="diffusion1d")
     parser.add_argument("--lamda_T", type=float, default=10.)
+    parser.add_argument("--if_random_shift", action="store_true")
     parser.add_argument("--num_sens", type=int, default=4)
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
@@ -135,9 +137,11 @@ if __name__ == '__main__':
     vis_images(torch.log(torch.abs(measurement[0, 0, 0]) + eps), torch.angle(measurement[0, 0, 0]), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"measurement.png")
     direct_recons = linear_tfm.conj_op(measurement.reshape(measurement.shape[0], -1, *measurement.shape[3:]))  # (num_sens, BT, 1, H, W) -> (BT, 1, H, W)
-    direct_recons = direct_recons.reshape(-1, *img_complex.shape)[0]  # (BT, 1, H, W) -> (B, T, 1, H, W) -> (T, 1, H, W)
-    vis_images(torch.abs(direct_recons[0]), torch.angle(direct_recons[0]), if_save=True, save_dir=args_dict["save_dir"],
-               filename=f"zero_padded_recons.png")
+    direct_recons = einops.rearrange(direct_recons, "(B T) C H W -> B T C H W", T=measurement.shape[2])  # (BT, 1, H, W) -> (B, T, 1, H, W)
+    # save the first batch
+    x_init = direct_recons  # (B, T, 1, H, W)
+    save_vol_as_gif(torch.abs(x_init[0]), save_dir=args_dict["save_dir"], filename=f"zf_mag.gif")
+    save_vol_as_gif(normalize_phase(torch.angle(x_init[0])), save_dir=args_dict["save_dir"], filename=f"zf_phase.gif")
     ALD_sampler._screenshot(img_complex.unsqueeze(0), {"c": 0, "init_vis_dir": args_dict["save_dir"]})
 
     filename_dict = {
@@ -150,7 +154,7 @@ if __name__ == '__main__':
     sys.stdout = log_file
     sys.stderr = log_file
 
-    ALD_call_params = dict(save_dir=args_dict["save_dir"], lr_scaled=args_dict["lr_scaled"], mode_T=args_dict["mode_T"], lamda_T=args_dict["lamda_T"])
+    ALD_call_params = dict(save_dir=args_dict["save_dir"], lr_scaled=args_dict["lr_scaled"], mode_T=args_dict["mode_T"], lamda_T=args_dict["lamda_T"], if_random_shift=args_dict["if_random_shift"])
     time_start = time.time()
     img_out = ALD_sampler(**ALD_call_params)[0]  # (B, T, 1, H, W)
     time_end = time.time()
@@ -175,6 +179,7 @@ if __name__ == '__main__':
     save_dir = args_dict["save_dir"]
     torch.save(img_complex.detach().cpu(), os.path.join(save_dir, "original.pt"))
     torch.save(measurement.detach().cpu(), os.path.join(save_dir, "measurement.pt"))
+    torch.save(direct_recons.detach().cpu(), os.path.join(save_dir, "ZF.pt"))
     torch.save(img_out.detach().cpu(), os.path.join(save_dir, "reconstructions.pt"))
 
     log_file.close()
