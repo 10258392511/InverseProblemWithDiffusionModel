@@ -7,13 +7,21 @@ if path not in sys.path:
     sys.path.append(path)
 
 import argparse
+import numpy as np
+import torch
+import einops
 import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from InverseProblemWithDiffusionModel.helpers.load_data import load_config, REGISTERED_DATA_CONFIG_FILENAME
 from InverseProblemWithDiffusionModel.helpers.load_model import reload_model, TASK_NAME_TO_MODEL_CTOR
 from InverseProblemWithDiffusionModel.ncsn.models.ALD_optimizers import ALDUnconditionalSampler
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
-from InverseProblemWithDiffusionModel.helpers.utils import vis_tensor, create_filename, vis_multi_channel_signal
+from InverseProblemWithDiffusionModel.helpers.utils import (
+    vis_tensor, 
+    create_filename, 
+    vis_multi_channel_signal,
+    save_vol_as_gif
+)
 
 
 if __name__ == '__main__':
@@ -29,6 +37,8 @@ if __name__ == '__main__':
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--save_dir", default="../outputs")
     parser.add_argument("--step_lr", type=float, default=0.0000009)
+    parser.add_argument("--if_save_fig", action="store_true")  # for 1D only; 2D images are always saved
+    parser.add_argument("--if_save_as_gif", action="store_true")  # for 1D only
     args_dict = vars(parser.parse_args())
     args_dict["if_conditioned"] = False
     device = ptu.DEVICE
@@ -90,5 +100,13 @@ if __name__ == '__main__':
 
     elif args_dict["task_name"] == "Diffusion1D":
         # images: (B, C, T)
-        
-        vis_multi_channel_signal(images[0], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png")
+        if args_dict["if_save_fig"]:
+            # first 4 channels
+            vis_multi_channel_signal(images[0][:4], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png")
+        if args_dict["if_save_as_gif"]:
+            # save the first batch only
+            B, C, T  = images.shape
+            images_as_vol = einops.rearrange(images[0], "(C1 kx ky) T -> T C1 kx ky", kx=int(np.sqrt(C)), C1=1)
+            save_vol_as_gif(images_as_vol, args_dict["save_dir"], "samples.gif")
+    
+    torch.save(images, os.path.join(args_dict["save_dir"], "samples.pt"))

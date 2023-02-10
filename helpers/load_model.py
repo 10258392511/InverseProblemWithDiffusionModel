@@ -57,7 +57,8 @@ RELOAD_MODEL_DIRS = {
         },
         "CINE64_1D": {
             # "real-valued": "2023_01_21_11_05_11_826573",  # real-imag, [0, 1]
-            "real-valued": "2023_02_03_22_37_54_991247"  # real-imag, [0, 1]
+            "real-valued": "2023_02_03_22_37_54_991247",  # real-imag, [-1, 1]
+            # "real-valued": "2023_02_05_08_22_29_816215"  # real-imag, [-1, 1], 64 channels
         },
         "CINE127": {
             # "real-valued": "2022_11_04_23_58_37_174974",
@@ -66,7 +67,8 @@ RELOAD_MODEL_DIRS = {
         },
         "CINE127_1D": {
             # "real-valued": "2023_01_21_11_05_27_208935",  # real-imag, [0, 1]
-            "real-valued": "2023_02_05_07_46_19_118951"  # real_imag, [0, 1]
+            "real-valued": "2023_02_05_07_46_19_118951",  # real-imag, [-1, 1]
+            # "real-valued": "2023_02_05_08_15_11_143632"  # real-imag, [-1, 1], 64 channels
         },
         "ACDC": {
             # "real-valued": "2022_11_07_10_48_24_147215",  # [0, 1]
