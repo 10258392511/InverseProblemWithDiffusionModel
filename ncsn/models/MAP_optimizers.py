@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import einops
@@ -11,6 +12,7 @@ from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransf
 from InverseProblemWithDiffusionModel.ncsn.regularizers import AbstractRegularizer
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
 from InverseProblemWithDiffusionModel.helpers.utils import reshape_temporal_dim, save_vol_as_gif, normalize_phase
+from InverseProblemWithDiffusionModel.ncsn.linear_transforms.finite_diff import FiniteDiff
 from tqdm import trange
 from typing import Any, Union
 
@@ -134,20 +136,26 @@ class MAPOptimizer2DTime(object):
         x_init: (B, T, C, H, W), complex, already sent to "device"
         measurement: (num_sens, B, T, C, H, W)
 
-        params: lr, opt_class, (device), num_iters, num_plot_times, win_size, prior_weight, spatial_step_weight, temporal_step_weight, save_dir
+        params: lr, opt_class, (device), num_iters, num_plot_times, win_size, prior_weight, spatial_step_weight, temporal_step_weight, save_dir, opt_params: dict, mode_T: [diffusion1d, tv], if_random_shift
         """
         self.params = params
         # self.x = torch.zeros_like(x_init)
         self.x = x_init
+        self.x_real = torch.real(self.x)
+        self.x_imag = torch.imag(self.x)
         self.measurement = measurement
         self.scorenet_S = scorenet_S
         self.scorenet_T = scorenet_T
+        self.win_size = np.sqrt(self.scorenet_T.config.data.channels).astype(int)
         self.linear_tfm = linear_tfm
         device = params.get("device", None)
         self.device = ptu.DEVICE if device is None else device
         self.logger = logger
-        self.opt = self.params["opt_class"]([self.x], lr=self.params["lr"])
+        self.opt_real = self.params["opt_class"]([self.x_real], lr=self.params["lr"], **self.params.get("opt_params", {}))
+        self.opt_imag = self.params["opt_class"]([self.x_imag], lr=self.params["lr"], **self.params.get("opt_params", {}))
         self.plot_interval = self.params["num_iters"] // self.params["num_plot_times"]
+        self.grad_log = {"grad_data": None, "grad_S": None, "grad_T": None, "grad": None, "data_error": None}
+        self.finite_diff = None
     
     @torch.no_grad()
     def __call__(self):
@@ -155,20 +163,77 @@ class MAPOptimizer2DTime(object):
         save_dir = os.path.join(self.params["save_dir"], "screenshots/")
         for iter in pbar:
             # all grad_*: (B, T, C, H, W) 
-            grad_data, data_error = self.data_step()
-            self.opt.zero_grad()
-            grad_S = self.spatial_step()
-            grad_T = self.temporal_step()
+            @torch.no_grad()
+            def closure_real():
+                self.opt_real.zero_grad()
+                grad_data, data_error = self.data_step()
+                grad_S = self.spatial_step()
+                grad_T = self.temporal_step(mode_T=self.params["mode_T"], if_random_shift=self.params["if_random_shift"])
+                
+                grad = grad_data + self.params["prior_weight"] * (self.params["spatial_step_weight"] * grad_S + self.params["temporal_step_weight"] * grad_T)
+                self.x_real.grad = -torch.real(grad)
+
+                self.grad_log["grad_data"] = grad_data
+                self.grad_log["grad_S"] = grad_S
+                self.grad_log["grad_T"] = grad_T
+                self.grad_log["grad"] = grad
+                self.grad_log["data_error"] = data_error
+
+                return 0
             
-            grad = grad_data + self.params["prior_weight"] * (self.params["spatial_step_weight"] * grad_S + self.params["temporal_step_weight"] * grad_T)
-            self.x.grad = -grad
-            self.opt.step()
+            @torch.no_grad()
+            def closure_imag():
+                self.opt_imag.zero_grad()
+                grad_data, data_error = self.data_step()
+                grad_S = self.spatial_step()
+                grad_T = self.temporal_step(mode_T=self.params["mode_T"], if_random_shift=self.params["if_random_shift"])
+                
+                grad = grad_data + self.params["prior_weight"] * (self.params["spatial_step_weight"] * grad_S + self.params["temporal_step_weight"] * grad_T)
+                self.x_imag.grad = -torch.imag(grad)
+
+                self.grad_log["grad_data"] = grad_data
+                self.grad_log["grad_S"] = grad_S
+                self.grad_log["grad_T"] = grad_T
+                self.grad_log["grad"] = grad
+                self.grad_log["data_error"] = data_error
+
+                return 0
+            
+            self.opt_real.step(closure_real)
+            self.opt_imag.step(closure_imag)
+            self.x = self.x_real + 1j * self.x_imag
+
+            # self.opt_real.zero_grad()
+            # self.opt_imag.zero_grad()
+            # grad_data, data_error = self.data_step()
+            # grad_S = self.spatial_step()
+            # grad_T = self.temporal_step()
+            
+            # grad = grad_data + self.params["prior_weight"] * (self.params["spatial_step_weight"] * grad_S + self.params["temporal_step_weight"] * grad_T)
+            # self.x_real.grad = -torch.real(grad)
+            # self.x_imag.grad = -torch.imag(grad)
+            # self.opt_real.step()
+            # self.opt_imag.step()
+            # self.x = self.x_real + 1j * self.x_imag
+
+            # self.grad_log["grad_data"] = grad_data
+            # self.grad_log["grad_S"] = grad_S
+            # self.grad_log["grad_T"] = grad_T
+            # self.grad_log["grad"] = grad
+            # self.grad_log["data_error"] = data_error
 
             # logging
+            grad_data = self.grad_log["grad_data"]
+            grad_S = self.grad_log["grad_S"]
+            grad_T = self.grad_log["grad_T"]
+            grad = self.grad_log["grad"]
+            data_error = self.grad_log["data_error"]
+
             self.logger.add_scalar("data_error", data_error.item(), global_step=iter)
             self.logger.add_scalar("grad_data", torch.norm(grad_data).item(), global_step=iter)
             self.logger.add_scalar("grad_S", torch.norm(grad_S).item(), global_step=iter)
             self.logger.add_scalar("grad_T", torch.norm(grad_T).item(), global_step=iter)
+            self.logger.add_scalar("grad", torch.norm(grad).item(), global_step=iter)
             pbar.set_description(f"data_error: {data_error.item()}")
 
             if iter % self.plot_interval == 0:
@@ -200,19 +265,39 @@ class MAPOptimizer2DTime(object):
 
         return grad
 
-    def temporal_step(self):
-        B, T, C, H, W = self.x.shape
-        x = einops.rearrange(self.x, "B T C H W -> (B C) T H W")  # (BC, T, H, W)
-        x = reshape_temporal_dim(x, self.params["win_size"], self.params["win_size"], "forward")  # (B', kx * ky, T)
-        labels = torch.ones(x.shape[0], device=self.device).long()
-        x_real, x_imag = torch.real(x), torch.imag(x)
-        grad_real = self.scorenet_T(x_real, labels)
-        grad_imag = self.scorenet_T(x_imag, labels)
-        grad = grad_real + 1j * grad_imag
-        grad = reshape_temporal_dim(grad, self.params["win_size"], self.params["win_size"], "backward", img_size=(H, W))  # (BC, T, H, W)
-        # print(f"grad_T shape: {grad.shape}")
-        # print("-" * 100)
-        grad = einops.rearrange(grad, "(B C) T H W -> B T C H W", C=C)
+    def temporal_step(self, mode_T="diffusion1d", if_random_shift=False):
+        # self.x: (B, T, C, H, W)
+        if mode_T == "tv":
+            if self.finite_diff is None:
+                self.finite_diff = FiniteDiff(dims=1)
+            x_real, x_imag = torch.real(self.x), torch.imag(self.x)
+            grad_real = self.finite_diff.log_lh_grad(x_real)
+            grad_imag = self.finite_diff.log_lh_grad(x_imag)
+            grad = grad_real + 1j * grad_imag
+
+        elif mode_T == "diffusion1d":
+            B, T, C, H, W = self.x.shape
+            x = einops.rearrange(self.x, "B T C H W -> (B C) T H W")  # (BC, T, H, W)
+            if if_random_shift:
+                shifts_np = np.random.randint(0, self.win_size, (2,))
+                shifts = tuple(shifts_np.tolist())
+                print(f"shifts: {shifts}")
+                x = torch.roll(x, shifts=shifts, dims=(-2, -1))
+            x = reshape_temporal_dim(x, self.params["win_size"], self.params["win_size"], "forward")  # (B', kx * ky, T)
+            labels = torch.ones(x.shape[0], device=self.device).long()
+            x_real, x_imag = torch.real(x), torch.imag(x)
+            grad_real = self.scorenet_T(x_real, labels)
+            grad_imag = self.scorenet_T(x_imag, labels)
+            grad = grad_real + 1j * grad_imag
+            grad = reshape_temporal_dim(grad, self.params["win_size"], self.params["win_size"], "backward", img_size=(H, W))  # (BC, T, H, W)
+            # print(f"grad_T shape: {grad.shape}")
+            # print("-" * 100)
+            if if_random_shift:
+                shifts = -shifts_np
+                shifts = tuple(shifts.tolist())
+                print(f"shifts back: {shifts}")
+                grad = torch.roll(grad, shifts=shifts, dims=(-2, -1))
+            grad = einops.rearrange(grad, "(B C) T H W -> B T C H W", C=C)
 
         return grad
 

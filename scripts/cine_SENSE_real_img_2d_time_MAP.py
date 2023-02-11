@@ -50,8 +50,15 @@ if __name__ == '__main__':
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--sens_type", default="exp")
     parser.add_argument("--num_sens", type=int, default=4)
+    parser.add_argument("--mode_T", choices=["diffusion1d", "tv"], default="diffusion1d")
+    parser.add_argument("--if_random_shift", action="store_true")
     parser.add_argument("--ds_idx", type=int, default=0)
     parser.add_argument("--save_dir", default="../outputs")
+    # for Adam
+    parser.add_argument("--beta1", type=float, default=0.9)
+    parser.add_argument("--beta2", type=float, default=0.999)
+    # for LBFGS
+    parser.add_argument("--max_iter", type=int, default=20)
     args_dict = vars(parser.parse_args())
 
     ds_name = args_dict["ds_name"]
@@ -119,6 +126,16 @@ if __name__ == '__main__':
     
     log_dir = os.path.join(args_dict["save_dir"], "logs/")
     logger = SummaryWriter(log_dir=log_dir)
+    
+    if opt_class == torch.optim.Adam:
+        opt_params = {
+            "betas": (args_dict["beta1"], args_dict["beta2"])
+        }
+    elif opt_class == torch.optim.LBFGS:
+        opt_params = {
+            "max_iter": args_dict["max_iter"]
+        }
+
     map_optimizer_params = {
         "lr": args_dict["lr"],
         "opt_class": opt_class,
@@ -128,7 +145,10 @@ if __name__ == '__main__':
         "prior_weight": args_dict["prior_weight"],
         "spatial_step_weight": args_dict["spatial_step_weight"],
         "temporal_step_weight": args_dict["temporal_step_weight"],
-        "save_dir": args_dict["save_dir"]
+        "save_dir": args_dict["save_dir"],
+        "opt_params": opt_params,
+        "mode_T": args_dict["mode_T"],
+        "if_random_shift": args_dict["if_random_shift"]
     }
 
     map_optimizer = MAPOptimizer2DTime(
