@@ -203,25 +203,6 @@ class MAPOptimizer2DTime(object):
             self.opt_imag.step(closure_imag)
             self.x = self.x_real + 1j * self.x_imag
 
-            # self.opt_real.zero_grad()
-            # self.opt_imag.zero_grad()
-            # grad_data, data_error = self.data_step()
-            # grad_S = self.spatial_step()
-            # grad_T = self.temporal_step()
-            
-            # grad = grad_data + self.params["prior_weight"] * (self.params["spatial_step_weight"] * grad_S + self.params["temporal_step_weight"] * grad_T)
-            # self.x_real.grad = -torch.real(grad)
-            # self.x_imag.grad = -torch.imag(grad)
-            # self.opt_real.step()
-            # self.opt_imag.step()
-            # self.x = self.x_real + 1j * self.x_imag
-
-            # self.grad_log["grad_data"] = grad_data
-            # self.grad_log["grad_S"] = grad_S
-            # self.grad_log["grad_T"] = grad_T
-            # self.grad_log["grad"] = grad
-            # self.grad_log["data_error"] = data_error
-
             # logging
             grad_data = self.grad_log["grad_data"]
             grad_S = self.grad_log["grad_S"]
