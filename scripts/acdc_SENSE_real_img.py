@@ -125,6 +125,8 @@ if __name__ == '__main__':
     vis_images(torch.log(torch.abs(measurement[0, 0]) + eps), torch.angle(measurement[0, 0]), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_measurement_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
     direct_recons = linear_tfm.conj_op(measurement)[0]
+    torch.save(direct_recons.detach().cpu(), os.path.join(args_dict["save_dir"], "ZF.pt"))
+
     vis_images(torch.abs(direct_recons), torch.angle(direct_recons), if_save=True, save_dir=args_dict["save_dir"],
                filename=f"acdc_zero_padded_recons_R_{args_dict['R']}_frac_{args_dict['center_lines_frac']}.png")
 
@@ -161,6 +163,8 @@ if __name__ == '__main__':
     torch.save(img_complex.detach().cpu(), os.path.join(save_dir, "original.pt"))
     torch.save(measurement.detach().cpu(), os.path.join(save_dir, "measurement.pt"))
     torch.save(img_out.detach().cpu(), os.path.join(save_dir, "reconstructions.pt"))
+    torch.save(direct_recons.detach().cpu(), os.path.join(save_dir, "ZF.pt"))
+
 
     log_file.close()
 

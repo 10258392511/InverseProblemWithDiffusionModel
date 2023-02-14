@@ -131,6 +131,7 @@ if __name__ == '__main__':
     torch.save(img_complex.detach().cpu(), os.path.join(save_dir, "original.pt"))
     torch.save(measurement.detach().cpu(), os.path.join(save_dir, "measurement.pt"))
     torch.save(img_out.detach().cpu(), os.path.join(save_dir, "reconstructions.pt"))
+    torch.save(direct_recons.detach().cpu(), os.path.join(save_dir, "ZF.pt"))
 
     log_file.close()
 
