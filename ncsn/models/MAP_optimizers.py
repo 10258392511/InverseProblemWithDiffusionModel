@@ -48,7 +48,7 @@ class MAPModel(nn.Module):
 
 class MAPOptimizer(object):
     def __init__(self, x_init: torch.Tensor, measurement: torch.Tensor, scorenet, linear_tfm: LinearTransform, lamda,
-                 config, logger: SummaryWriter, device=None):
+                 config, logger: SummaryWriter, device=None, opt_class=None, opt_params=None):
         """
         x_init: (1, C, H, W)
         logger: initialized outside the scope
@@ -64,9 +64,13 @@ class MAPOptimizer(object):
         self.device = ptu.DEVICE if device is None else device
         self.logger = logger
         self.plot_interval = self.config.MAP.n_iters // 50
-        self.sigma_val = self.scorenet.sigmas[-1]
-        self.sigma = -1
+        # self.sigma_val = self.scorenet.sigmas[-1]
+        # self.sigma = -1
         self.lr = self.config.MAP.lr
+        if opt_class is None:
+            opt_class = torch.optim.Adam
+            opt_params = {"betas": (0.5, 0.5)}
+        self.opt = opt_class([self.x_init], lr=self.lr, **opt_params)  # LBFGS is not supported
     
     @torch.no_grad()
     def __call__(self):
@@ -87,9 +91,16 @@ class MAPOptimizer(object):
 
     def _step(self, x, iter):
         grad_data = self.linear_tfm.log_lh_grad(x, self.measurement, 1.)  # (1, C, H, W)
-        grad_prior = self.scorenet(x, self.sigma) * self.sigma_val  # (1, C, H, W)
+        # grad_prior = self.scorenet(x, self.sigma) * self.sigma_val  # (1, C, H, W)
+        labels = torch.ones(x.shape[0], device=self.device).long()
+        grad_prior_real = self.scorenet(torch.real(x), labels)
+        grad_prior_imag = self.scorenet(torch.imag(x), labels)
+        grad_prior = grad_prior_real + 1j * grad_prior_imag
         grad = grad_data + self.lamda * grad_prior
-        x += grad * self.lr  # maximizing log posterior
+        # x += grad * self.lr  # maximizing log posterior
+        self.opt.zero_grad()
+        self.x_init.grad = -grad
+        self.opt.step()
 
         # logging
         self.logger.add_scalar("grad_data", torch.norm(grad_data).item(), global_step=iter)
@@ -100,6 +111,10 @@ class MAPOptimizer(object):
 
 
 class Inpainting(MAPOptimizer):
+    pass
+
+
+class SENSEMAP(MAPOptimizer):
     pass
 
 
