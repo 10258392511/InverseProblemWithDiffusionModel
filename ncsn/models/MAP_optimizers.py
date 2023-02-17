@@ -11,7 +11,13 @@ from torch.utils.tensorboard import SummaryWriter
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms import LinearTransform
 from InverseProblemWithDiffusionModel.ncsn.regularizers import AbstractRegularizer
 from InverseProblemWithDiffusionModel.ncsn.models import get_sigmas
-from InverseProblemWithDiffusionModel.helpers.utils import reshape_temporal_dim, save_vol_as_gif, normalize_phase
+from InverseProblemWithDiffusionModel.helpers.utils import (
+    reshape_temporal_dim, 
+    save_vol_as_gif, 
+    normalize_phase,
+    vis_images,
+    vis_multi_channel_signal
+)
 from InverseProblemWithDiffusionModel.ncsn.linear_transforms.finite_diff import FiniteDiff
 from tqdm import trange
 from typing import Any, Union
@@ -176,6 +182,8 @@ class MAPOptimizer2DTime(object):
     def __call__(self):
         pbar = trange(self.params["num_iters"], desc="optimizing")
         save_dir = os.path.join(self.params["save_dir"], "screenshots/")
+        save_dir_2d = os.path.join(self.params["save_dir"], "screenshots_2d/")
+
         for iter in pbar:
             # all grad_*: (B, T, C, H, W) 
             @torch.no_grad()
@@ -232,10 +240,11 @@ class MAPOptimizer2DTime(object):
             self.logger.add_scalar("grad", torch.norm(grad).item(), global_step=iter)
             pbar.set_description(f"data_error: {data_error.item()}")
 
-            if iter % self.plot_interval == 0:
+            if iter % self.plot_interval == 0 or iter == self.params["num_iters"] - 1:
                 # only save the first batch
                 save_vol_as_gif(torch.abs(self.x[0]), save_dir=save_dir, filename=f"mag_{iter + 1}.gif")
                 save_vol_as_gif(normalize_phase(torch.angle(self.x[0])), save_dir=save_dir, filename=f"phase_{iter + 1}.gif")
+                self._screenshot(self.x, {"c": iter, "save_dir": save_dir_2d})
 
         return self.get_reconstruction()
 
@@ -277,7 +286,7 @@ class MAPOptimizer2DTime(object):
             if if_random_shift:
                 shifts_np = np.random.randint(0, self.win_size, (2,))
                 shifts = tuple(shifts_np.tolist())
-                print(f"shifts: {shifts}")
+                # print(f"shifts: {shifts}")
                 x = torch.roll(x, shifts=shifts, dims=(-2, -1))
             x = reshape_temporal_dim(x, self.params["win_size"], self.params["win_size"], "forward")  # (B', kx * ky, T)
             labels = torch.ones(x.shape[0], device=self.device).long()
@@ -291,7 +300,7 @@ class MAPOptimizer2DTime(object):
             if if_random_shift:
                 shifts = -shifts_np
                 shifts = tuple(shifts.tolist())
-                print(f"shifts back: {shifts}")
+                # print(f"shifts back: {shifts}")
                 grad = torch.roll(grad, shifts=shifts, dims=(-2, -1))
             grad = einops.rearrange(grad, "(B C) T H W -> B T C H W", C=C)
 
@@ -300,4 +309,30 @@ class MAPOptimizer2DTime(object):
     def get_reconstruction(self):
 
         return self.x.detach().cpu()
+    
+    def _screenshot(self, x_mod, print_args: dict):
+        """
+        x_mod: (B, T, C, H, W)
+        print_args: keys: c, save_dir
+
+        Screenshots: first batch: first image; upper-left corner and center temporal slices (first image channel);
+            all in magnitude-phase format
+        """
+        B, T, C, H, W = x_mod.shape
+        save_dir = print_args.get("init_vis_dir", None)
+        if save_dir is None:
+            save_dir = os.path.join(print_args["save_dir"], "screenshots/")
+        vis_images(torch.abs(x_mod[0, 0]), torch.angle(x_mod[0, 0]), if_save=True, save_dir=save_dir, 
+                   filename=f"step_{print_args['c']}_spatial.png")
+        h_center, w_center = H // 2, W // 2
+        x_mod_temporal_slice = x_mod[0, :, 0, ...].unsqueeze(0)  # (T, H, W) -> (1, T, H, W)
+        upper_left_corner = x_mod_temporal_slice[:, :, 0:self.win_size, 0:self.win_size]  # (1, T, kx, ky)
+        center = x_mod_temporal_slice[:, :, h_center:h_center + self.win_size, w_center:w_center + self.win_size]  # (1, T, kx, ky)
+        upper_left_corner = reshape_temporal_dim(upper_left_corner, self.win_size, self.win_size)  # (1, kx * ky, T)
+        center = reshape_temporal_dim(center, self.win_size, self.win_size)  # (1, kx * ky, T)
+        
+        vis_multi_channel_signal(torch.real(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_real.png")
+        vis_multi_channel_signal(torch.imag(upper_left_corner[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_upper_left_corner_imag.png")
+        vis_multi_channel_signal(torch.real(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_real.png")
+        vis_multi_channel_signal(torch.imag(center[0]), if_save=True, save_dir=save_dir, filename=f"step_{print_args['c']}_T_center_imag.png")
         

@@ -412,6 +412,7 @@ class ALD2DTime(ALDOptimizer):
                 self._screenshot(x_mod, self.print_args)
 
         # no need to do the last denoising step
+        self._screenshot(x_mod, {"c": c, "save_dir": kwargs.get("save_dir")})
 
         return [x_mod.to("cpu")]
 
