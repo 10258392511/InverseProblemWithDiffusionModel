@@ -171,6 +171,7 @@ if __name__ == '__main__':
     sys.stdout = log_file
     sys.stderr = log_file
 
+    map_optimizer._screenshot(img_complex.unsqueeze(0), {"c": -1, "save_dir": args_dict["save_dir"]})
     time_start = time.time()
     img_out = map_optimizer()  # (B, T, C, H, W)
     time_end = time.time()
