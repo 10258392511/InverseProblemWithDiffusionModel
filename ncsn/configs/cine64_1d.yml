@@ -39,7 +39,9 @@ test:
 data:
   dataset: "CINE64"
   image_size: 32  # T = 25
-  channels: 4  # 4
+  channels: 64  # 4
+  th: 0.015  # norm(x) / x.numel()
+  leq: 22.11  # leq : gt = 22.11 : 1
   logit_transform: false
   uniform_dequantization: false
   gaussian_dequantization: false
@@ -48,8 +50,8 @@ data:
   num_workers: 8
 
 model:
-  sigma_begin: 10  # 10
-  num_classes: 100  # 100
+  sigma_begin: 40  # 10
+  num_classes: 200  # 100
   ema: true
   ema_rate: 0.999
   spec_norm: false
@@ -69,6 +71,6 @@ optim:
 
 recons:
   sigma_dist: geometric
-  sigma_begin: 10
-  num_classes: 100
+  sigma_begin: 40
+  num_classes: 400
   sigma_end: 0.01

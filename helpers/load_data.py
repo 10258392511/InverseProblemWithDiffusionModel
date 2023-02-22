@@ -381,3 +381,24 @@ def compute_max_euclidean_dist(ds: Dataset, num_pairs=10 ** 3):
             max_dist = dist
     
     return max_dist
+
+
+def filter_batch(batch: torch.Tensor, config):
+    # print("from filter_batch(.)")
+    # print(f"before: {batch.shape}")
+    if batch.dim() == 3:  # 1D signal
+        th = config.data.th
+        prob = 1 / config.data.leq
+        # batch: (B, C, L)
+        B, C, L = batch.shape
+        norm = torch.norm(batch, p=2, dim=(1, 2), keepdim=False) / (C * L)  # (B,)
+        norm_mask = (norm > th)  # (B,)
+        prob_mask = (torch.rand(B).to(batch.device) <= prob)  # (B,)
+        mask = torch.logical_or(norm_mask, prob_mask)
+        batch = batch[mask]
+        # print(f"norm_mask: {norm_mask}")
+        # print(f"prob_mask: {prob_mask}")
+        # print(f"mask: {mask}")
+        # print(f"after: {batch.shape}")
+
+    return batch

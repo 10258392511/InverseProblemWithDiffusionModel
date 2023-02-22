@@ -20,7 +20,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from monai.metrics import DiceMetric
 from monai.data import decollate_batch
-from InverseProblemWithDiffusionModel.helpers.load_data import collate_batch
+from InverseProblemWithDiffusionModel.helpers.load_data import collate_batch, filter_batch
 from monai.optimizers import Novograd
 from monai.transforms import Compose, AsDiscrete
 from monai.utils import CommonKeys
@@ -127,7 +127,9 @@ class TrainScoreModelDiscrete(pl.LightningModule):
             X = 2 * X - 1
         # print(f"X: {X.shape}, {X.min()}, {X.max()}")
         # X: (B, C, H, W)
+        X = filter_batch(X, self.config)
         X = collate_batch(X, self.params["data_mode"])
+
         if isinstance(X, list):
             # real-imag
             X_real, X_imag = X
@@ -151,6 +153,7 @@ class TrainScoreModelDiscrete(pl.LightningModule):
         # X: (B, C, H, W)
         if self.params.get("if_centering", False):
             X = 2 * X - 1
+        X = filter_batch(X, self.config)
         X = collate_batch(X, self.params["data_mode"])
         if isinstance(X, list):
             # real-imag
