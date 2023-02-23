@@ -379,6 +379,7 @@ def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filenam
         vol = ptu.to_numpy(vol)
 
     # vol = (vol * 255).astype(np.uint8)
+    vol = (vol - vol.min()) / (vol.max() - vol.min()) * 255
     if C == 1:
         vol = vol[:, 0, ...]  # (T, H, W)
     else:
@@ -387,7 +388,7 @@ def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filenam
     imgs = []
     for t in range(vol.shape[0]):
         frame = vol[t, ...]
-        frame = (frame - frame.min()) / (frame.max() - frame.min()) * 255
+        # frame = (frame - frame.min()) / (frame.max() - frame.min()) * 255
         imgs.append(Image.fromarray(frame.astype(np.uint8)))
     imgs[0].save(save_path, save_all=True, append_images=imgs[1:], duration=duration, loop=loop)
 

@@ -1,6 +1,7 @@
 training:
   batch_size: 512  # 2048
   n_epochs: 200  # 200
+  use_IN: true
   n_iters: 80001
   snapshot_freq: 5000
   snapshot_sampling: true
@@ -40,8 +41,8 @@ data:
   dataset: "CINE64"
   image_size: 32  # T = 25
   channels: 64  # 4
-  th: 0.015  # norm(x) / x.numel()
-  leq: 22.11  # leq : gt = 22.11 : 1
+  th: 0.06  # norm_tfm(x) / x.numel()
+  leq: 1000  # leq : gt = 1640.1 : 1
   logit_transform: false
   uniform_dequantization: false
   gaussian_dequantization: false

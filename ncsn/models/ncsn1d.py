@@ -3,10 +3,38 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 import torch
+
 from functools import partial
 from . import get_sigmas
 from .layers1d import *
 from .normalization1d import get_normalization
+from monai.networks.nets import UNet
+
+
+class UNET1D(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.use_IN = config.training.use_IN
+        norm = "INSTANCE" if self.use_IN else None
+        self.net = UNet(
+            spatial_dims=1,
+            in_channels=self.config.data.channels,
+            out_channels=self.config.data.channels,
+            channels=[64, 256, 1024, 4196],
+            # channels=[64, 128, 256],
+            strides=(2, 2, 2),
+            norm=norm
+        )
+        self.register_buffer('sigmas', get_sigmas(config))
+    
+    def forward(self, x, y):
+        output = self.net(x)
+        used_sigmas = self.sigmas[y].view(x.shape[0], *([1] * len(x.shape[1:])))
+        output = output / used_sigmas
+
+        return output
+
 
 
 class NCSN1D(nn.Module):

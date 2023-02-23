@@ -102,7 +102,7 @@ if __name__ == '__main__':
         # images: (B, C, T)
         if args_dict["if_save_fig"]:
             # first 4 channels
-            vis_multi_channel_signal(images[0][:4], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png")
+            vis_multi_channel_signal(images[0][20:30], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png")
         if args_dict["if_save_as_gif"]:
             # save the first batch only
             B, C, T  = images.shape

@@ -391,10 +391,12 @@ def filter_batch(batch: torch.Tensor, config):
         prob = 1 / config.data.leq
         # batch: (B, C, L)
         B, C, L = batch.shape
-        norm = torch.norm(batch, p=2, dim=(1, 2), keepdim=False) / (C * L)  # (B,)
+        batch_shift = torch.roll(batch, -1, dims=-1)
+        norm = torch.norm(batch_shift - batch, p=1, dim=(1, 2), keepdim=False) / (C * L)  # (B,)
         norm_mask = (norm > th)  # (B,)
-        prob_mask = (torch.rand(B).to(batch.device) <= prob)  # (B,)
+        prob_mask = (torch.rand(B).to(batch.device) <= 0.)  # (B,)
         mask = torch.logical_or(norm_mask, prob_mask)
+        mask[0:2] = True  # ensures at least 5 sample is kept
         batch = batch[mask]
         # print(f"norm_mask: {norm_mask}")
         # print(f"prob_mask: {prob_mask}")
