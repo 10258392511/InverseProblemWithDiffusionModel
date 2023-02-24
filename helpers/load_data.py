@@ -27,7 +27,7 @@ from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import Compose, ToTensor, Normalize, Resize
 from monai.transforms import Resize as monai_Resize
 from typing import Union
-from InverseProblemWithDiffusionModel.helpers.utils import load_yml_file, reshape_temporal_dim
+from InverseProblemWithDiffusionModel.helpers.utils import load_yml_file, reshape_temporal_dim, vis_multi_channel_signal
 
 
 parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -37,7 +37,8 @@ REGISTERED_DATA_ROOT_DIR = {
     "CINE64": os.path.join(parent_dir, "data/score_labs/data/cine_64"),
     "CINE127": os.path.join(parent_dir, "data/score_labs/data/cine_127"),
     "ACDC": "/scratch/zhexwu/data/ACDC_textures/data_slices",
-    # "ACDC": "E:\Datasets\ACDC_textures\data_slices"
+    # "ACDC": "E:\Datasets\ACDC_textures\data_slices",
+    "SanityCheck1D": None
 }
 
 REGISTERED_DATA_CONFIG_FILENAME = {
@@ -46,7 +47,8 @@ REGISTERED_DATA_CONFIG_FILENAME = {
     "CINE64_1D": os.path.join(parent_dir, "ncsn/configs/cine64_1d.yml"),
     "CINE127": os.path.join(parent_dir, "ncsn/configs/cine127.yml"),
     "CINE127_1D": os.path.join(parent_dir, "ncsn/configs/cine127_1d.yml"),
-    "ACDC": os.path.join(parent_dir, "ncsn/configs/acdc.yml")
+    "ACDC": os.path.join(parent_dir, "ncsn/configs/acdc.yml"),
+    "SanityCheck1D": os.path.join(parent_dir, "ncsn/configs/sanity_check_1D.yml")
 }
 
 
@@ -77,6 +79,15 @@ def load_data(ds_name, mode="train", **kwargs):
 
     elif ds_name == "ACDC":
         ds_out = load_ACDC(ds_path, mode=mode, **kwargs)
+    
+    elif ds_name == "SanityCheck1D":
+        if mode == "train":
+            seed = 0
+            num_samples = 1000
+        else:
+            seed = 10
+            num_samples = 300
+        ds_out = load_sanity_check_1D(seed=seed, num_samples=num_samples, **kwargs)
 
     return ds_out
 
@@ -271,6 +282,21 @@ def load_ACDC(root_dir, train_test_split=[0.8, 0.1], seg_labels=[3], mode="train
     return ds_out
 
 
+def load_sanity_check_1D(num_samples: int, num_channels: int, num_features: int, seed=0):
+    # s(t) = a * t / T + b * sin(w * t) + eps(t) where a ~ Unif{-1, 1}, w = 1, eps(t) ~ GP(0, sigma * delta(t, t'))
+    torch.manual_seed(seed)
+    b, w = 0.2, 1.
+    sigma = 0.01
+    a = np.random.choice([-1., 1.], (num_samples, num_channels, 1))  # (N, C, 1)
+    a = torch.tensor(a)
+    t_grid = torch.arange(num_features, dtype=torch.float32)  # (T,)
+    x = a * t_grid / num_features + b * torch.sin(w * t_grid)  # (N, C, T) + (T,) -> (N, C, T)
+    x = x + torch.randn_like(x) * sigma
+    ds = TensorDataset(x.float())
+
+    return ds
+
+
 def load_config(ds_name, mode="real-valued", device=None, **kwargs):
     """
     kwargs: flatten_type
@@ -293,11 +319,12 @@ def load_config(ds_name, mode="real-valued", device=None, **kwargs):
 
     return config_namespace
 
-
+# COUNTER = 0
 def collate_batch(batch: torch.Tensor, mode="real-valued"):
     """
     To be used in LightningModule
     """
+    # global COUNTER
     assert mode in ["real-valued", "mag", "complex", "real-imag", "real-imag-random"]
     # batch: (B, 1, H, W)
     batch_dim = batch.dim()
@@ -321,6 +348,9 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
         phi = phi.to(batch.device).reshape(batch.shape[0], 1, 1, 1)  # (B, 1, 1, 1)
         batch = batch * torch.exp(1j * phi)
         batch_real, batch_imag = torch.real(batch), torch.imag(batch)
+        print(f"{batch_real.shape}, {batch_real.dtype}")
+        # vis_multi_channel_signal(batch_real[-1, 0], if_save=True, save_dir="/scratch/zhexwu/outputs/debug_filter_batch/after_adding_phase/", filename=f"train_sample_{COUNTER}.png")
+        # COUNTER += 1
         batch = [batch_real, batch_imag]
     
     elif mode == "real-imag-random":
@@ -386,6 +416,7 @@ def compute_max_euclidean_dist(ds: Dataset, num_pairs=10 ** 3):
 def filter_batch(batch: torch.Tensor, config):
     # print("from filter_batch(.)")
     # print(f"before: {batch.shape}")
+    # global COUNTER
     if batch.dim() == 3:  # 1D signal
         th = config.data.th
         prob = 1 / config.data.leq
@@ -396,11 +427,13 @@ def filter_batch(batch: torch.Tensor, config):
         norm_mask = (norm > th)  # (B,)
         prob_mask = (torch.rand(B).to(batch.device) <= 0.)  # (B,)
         mask = torch.logical_or(norm_mask, prob_mask)
-        mask[0:2] = True  # ensures at least 5 sample is kept
+        mask[0:2] = True  # ensures at least 2 sample is kept
         batch = batch[mask]
+        # vis_multi_channel_signal(batch[-1], if_save=True, save_dir="/scratch/zhexwu/outputs/debug_filter_batch/", filename=f"train_sample_{COUNTER}.png")
+        # COUNTER += 1
         # print(f"norm_mask: {norm_mask}")
         # print(f"prob_mask: {prob_mask}")
         # print(f"mask: {mask}")
-        # print(f"after: {batch.shape}")
+        print(f"after: {batch.shape}")
 
     return batch

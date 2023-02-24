@@ -9,6 +9,9 @@ from InverseProblemWithDiffusionModel.helpers.utils import vis_signals
 def select_at_idx(ds: Dataset, ds_name: str, idx: int):
     if "CINE" in ds_name:
         return ds[idx][0]
+
+    elif ds_name == "SanityCheck1D":
+        return ds[idx][0]
     
     raise NotImplementedError
 

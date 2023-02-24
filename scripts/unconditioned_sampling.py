@@ -101,8 +101,9 @@ if __name__ == '__main__':
     elif args_dict["task_name"] == "Diffusion1D":
         # images: (B, C, T)
         if args_dict["if_save_fig"]:
-            # first 4 channels
-            vis_multi_channel_signal(images[0][20:30], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png")
+            # all channels
+            ylim = (-2, 2)
+            vis_multi_channel_signal(images[0][:], if_save=True, save_dir=args_dict["save_dir"], filename="unconditioned_sample.png", ylim=ylim)
         if args_dict["if_save_as_gif"]:
             # save the first batch only
             B, C, T  = images.shape

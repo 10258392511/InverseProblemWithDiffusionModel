@@ -58,7 +58,7 @@ RELOAD_MODEL_DIRS = {
         },
         "CINE64_1D": {
             # "real-valued": "2023_01_21_11_05_11_826573",  # real-imag, [0, 1]
-            # "real-valued": "2023_02_03_22_37_54_991247",  # real-imag, [-1, 1]
+            "real-valued": "2023_02_03_22_37_54_991247",  # real-imag, [-1, 1]
             # "real-valued": "2023_02_05_08_22_29_816215",  # real-imag, [-1, 1], 64 channels
             # "real-valued": "2023_02_22_22_24_04_101290",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced
             # "real-valued": "2023_02_23_21_32_49_452096",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.02
@@ -67,7 +67,7 @@ RELOAD_MODEL_DIRS = {
             # "real-valued": "2023_02_23_22_32_39_262518",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07
             # "real-valued": "2023_02_23_23_05_47_731913",  # real-imag, [-1, 1], 64 channels, UNet, no IN, [64, 256, 1024, 4196]
             # "real-valued": "2023_02_23_23_12_25_531634",  # real-imag, [-1, 1], 64 channels, UNet, IN, [64, 256, 1024, 4196]
-            "real-valued": "2023_02_23_23_17_52_644532",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07, mask[0:2] = True, prob = 0.
+            # "real-valued": "2023_02_23_23_17_52_644532",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07, mask[0:2] = True, prob = 0.
         },
         "CINE127": {
             # "real-valued": "2022_11_04_23_58_37_174974",
@@ -86,6 +86,11 @@ RELOAD_MODEL_DIRS = {
             # "real-valued": "2022_12_25_11_59_46_710463",  # [-1, 1], 400 epochs, B = 6
             "real-valued": "2023_01_05_23_55_24_713049",  # real-imag, [0, 1] -> [-1, 1]
             "complex": "2022_11_07_10_48_52_039130"
+        },
+        "SanityCheck1D": {
+            "real-valued": "2023_02_24_21_25_05_492704",  # NCSN1D
+            # "real-valued": "2023_02_24_21_49_17_971855",  # UNET1D, IN, [64, 256, 1024, 4196]
+            # "real-valued": "2023_02_24_21_51_15_318979"  # UNET1D, no IN, [64, 256, 1024, 4196]
         }
     },
 

@@ -34,12 +34,21 @@ if __name__ == '__main__':
     log_dir = "./"
     log_name = "ncsn_logs"
 
-    config = load_config(f"{ds_name}_1D", mode=mode, flatten_type=args["flatten_type"])
+    if "CINE" in args["ds_name"] and args["flatten_type"] == "temporal":
+        config = load_config(f"{ds_name}_1D", mode=mode, flatten_type=args["flatten_type"])
+    else:
+        config = load_config(ds_name, mode=mode)
+        
     if "CINE" in args["ds_name"] and args["flatten_type"] == "temporal":
         win_size = int(np.sqrt(config.data.channels))
         train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size)
         val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size)
         ds_name = f"{ds_name}_1D"
+    elif ds_name == "SanityCheck1D":
+        num_channels = config.data.channels
+        num_features = config.data.image_size
+        train_ds = load_data(ds_name, "train", num_channels=num_channels, num_features=num_features)
+        val_ds = load_data(ds_name, "val", num_channels=num_channels, num_features=num_features)
     else:
         train_ds = load_data(ds_name, "train", if_aug=False)
         val_ds = load_data(ds_name, "val", if_aug=False)
