@@ -9,14 +9,16 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from scipy.stats import spearmanr
 from collections import defaultdict
-from InverseProblemWithDiffusionModel.helpers.utils import load_pickle, compute_angle
+from torchvision.utils import make_grid
+from einops import rearrange
+from InverseProblemWithDiffusionModel.helpers.utils import load_pickle, compute_angle, save_vol_as_gif
 from InverseProblemWithDiffusionModel.helpers.metrics import (
     REGISTERED_METRICS,
     REGISTERED_METRICS_3D,
     compute_snr,
     compute_metrics
 )
-from typing import Dict
+from typing import Dict, Union, List
 
 
 FIGSIZE_UNIT = 3.6
@@ -392,3 +394,27 @@ def metric_vs_one_hyperparam(root_dirs: list, metrics: list, param_tune: str, pa
         fig.savefig(os.path.join(save_dir, save_filename))
 
     return fig
+
+
+def grid_of_temporal_samples(x: Union[torch.Tensor, List[str]], num_rows: int,
+                             save_dir: Union[str, None] = None, **kwargs) -> torch.Tensor:
+    """
+    x: filenames or tensor: (B, C, T)
+    kwargs: padding
+    """
+    padding = kwargs.get("padding", 2)
+    if isinstance(x, list):
+       x = list(map(lambda path: torch.load(path), x)) # list[(1, C, T)]
+       x = torch.cat(x, dim=0)  # (B, C, T)
+
+    assert x.shape[0] % num_rows == 0
+    x = (x - torch.min(x, dim=-1, keepdim=True)[0]) / (torch.max(x, dim=-1, keepdim=True)[0] -
+                                                    torch.min(x, dim=-1, keepdim=True)[0])
+    x = rearrange(x, "B (kx ky) T -> B T kx ky", ky=np.sqrt(x.shape[1]).astype(int))
+    x_grid = make_grid(x, nrow=num_rows, padding=padding)  # (T, H', W')
+
+    if save_dir is not None:
+        save_vol_as_gif(x_grid.unsqueeze(1), save_dir=save_dir, filename="samples.gif", if_normalize=False)
+
+    # (T, H', W')
+    return x_grid

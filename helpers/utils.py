@@ -361,8 +361,9 @@ def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filenam
     """
     vol: (T, C, H, W)
 
-    kwargs: duration
+    kwargs: duration, if_normalize
     """
+    if_normalize = kwargs.get("if_normalize", True)
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
 
@@ -379,7 +380,9 @@ def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filenam
         vol = ptu.to_numpy(vol)
 
     # vol = (vol * 255).astype(np.uint8)
-    vol = (vol - vol.min()) / (vol.max() - vol.min()) * 255
+    if if_normalize:
+        vol = (vol - vol.min()) / (vol.max() - vol.min())
+    vol *= 255
     if C == 1:
         vol = vol[:, 0, ...]  # (T, H, W)
     else:

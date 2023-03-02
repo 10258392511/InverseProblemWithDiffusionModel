@@ -131,7 +131,8 @@ def load_cine(root_dir, mode="train", img_key="imgs", flatten=True, flatten_type
     filename = glob.glob(os.path.join(root_dir, f"*{mode}*.mat"))[0]
     ds = sio.loadmat(filename)[img_key]  # (H, W, T, N)
     ds = ds.transpose(3, 2, 0, 1)  # (N, T, H, W)
-    ds = (ds - ds.min()) / (ds.max() - ds.min())
+    ds = (ds - ds.min(axis=(1, 2, 3), keepdims=True)) / (ds.max(axis=(1, 2, 3), keepdims=True) -
+                                                         ds.min(axis=(1, 2, 3), keepdims=True))
     if flatten:
         if flatten_type == "spatial":
             N, T, H, W = ds.shape
@@ -348,7 +349,7 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
         phi = phi.to(batch.device).reshape(batch.shape[0], 1, 1, 1)  # (B, 1, 1, 1)
         batch = batch * torch.exp(1j * phi)
         batch_real, batch_imag = torch.real(batch), torch.imag(batch)
-        print(f"{batch_real.shape}, {batch_real.dtype}")
+        # print(f"{batch_real.shape}, {batch_real.dtype}")
         # vis_multi_channel_signal(batch_real[-1, 0], if_save=True, save_dir="/scratch/zhexwu/outputs/debug_filter_batch/after_adding_phase/", filename=f"train_sample_{COUNTER}.png")
         # COUNTER += 1
         batch = [batch_real, batch_imag]
@@ -361,9 +362,9 @@ def collate_batch(batch: torch.Tensor, mode="real-valued"):
         # (B, 1, C, T) -> (B, C, T)
         if isinstance(batch, list):
             for i in range(len(batch)):
-                batch[i] = batch[i].squeeze()
+                batch[i] = batch[i].squeeze(1)
         else:
-            batch = batch.squeeze()
+            batch = batch.squeeze(1)
             
     return batch
 
