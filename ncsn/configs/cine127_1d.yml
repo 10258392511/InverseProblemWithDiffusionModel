@@ -1,6 +1,6 @@
 training:
-  batch_size: 512  # 2048
-  n_epochs: 100  # 200
+  batch_size: 128  # 2048
+  n_epochs: 50  # 200
   use_IN: true
   n_iters: 80001
   snapshot_freq: 5000
@@ -39,8 +39,9 @@ test:
 
 data:
   dataset: "CINE127"
-  image_size: 32  # T = 25
+  image_size: 24  # T = 25, 32
   channels: 64  # 4
+  channels_3d: 1
   th: 0.02  # norm_tfm(x) / x.numel()
   leq: 8.82  # leq : gt = 7.82 : 1
   logit_transform: false

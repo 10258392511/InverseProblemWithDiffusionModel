@@ -54,7 +54,7 @@ REGISTERED_DATA_CONFIG_FILENAME = {
 
 def load_data(ds_name, mode="train", **kwargs):
     """
-    kwargs: CINE64/127: flatten_type
+    kwargs: CINE64/127: flatten_type, resize_shape_T
     """
     assert ds_name in REGISTERED_DATA_ROOT_DIR.keys()
     assert mode in ["train", "val", "test"]
@@ -69,13 +69,13 @@ def load_data(ds_name, mode="train", **kwargs):
         if flatten_type == "spatial":
             ds_out = load_cine(ds_path, mode, **kwargs)
         else:
-            ds_out = load_cine(ds_path, mode, resize_shape_T=32, **kwargs)
+            ds_out = load_cine(ds_path, mode, **kwargs)
     elif ds_name == "CINE127":
         flatten_type = kwargs.get("flatten_type", "spatial")
         if flatten_type == "spatial":
             ds_out = load_cine(ds_path, mode, resize_shape=128, **kwargs)
         else:
-            ds_out = load_cine(ds_path, mode, resize_shape=128, resize_shape_T=32, **kwargs)
+            ds_out = load_cine(ds_path, mode, resize_shape=128, **kwargs)
 
     elif ds_name == "ACDC":
         ds_out = load_ACDC(ds_path, mode=mode, **kwargs)
@@ -435,6 +435,6 @@ def filter_batch(batch: torch.Tensor, config):
         # print(f"norm_mask: {norm_mask}")
         # print(f"prob_mask: {prob_mask}")
         # print(f"mask: {mask}")
-        print(f"after: {batch.shape}")
+        # print(f"after: {batch.shape}")
 
     return batch

@@ -1,5 +1,5 @@
 training:
-  batch_size: 512  # 2048
+  batch_size: 128  # 2048
   n_epochs: 200  # 200
   use_IN: true
   n_iters: 80001
@@ -39,8 +39,9 @@ test:
 
 data:
   dataset: "CINE64"
-  image_size: 32  # T = 25
-  channels: 4  # 4
+  image_size: 24  # T = 25, 32
+  channels: 64  # 4
+  channels_3d: 1
   th: 0.06  # norm_tfm(x) / x.numel()
   leq: 1000  # leq : gt = 1640.1 : 1
   logit_transform: false
@@ -51,8 +52,8 @@ data:
   num_workers: 8
 
 model:
-  sigma_begin: 10  # 40
-  num_classes: 100  # 200
+  sigma_begin: 40  # 40, 10
+  num_classes: 200  # 200, 100
   ema: true
   ema_rate: 0.999
   spec_norm: false
@@ -72,6 +73,6 @@ optim:
 
 recons:
   sigma_dist: geometric
-  sigma_begin: 10  # 40
-  num_classes: 100  # 400
+  sigma_begin: 40  # 40, 10
+  num_classes: 200  # 200, 100
   sigma_end: 0.01

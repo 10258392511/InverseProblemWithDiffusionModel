@@ -21,8 +21,8 @@ if __name__ == '__main__':
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--ds_name", required=True)  # CINE64 or CINE 127, "1D" will be appended later
-    parser.add_argument("--task_name", required=True)  # Diffusion or Diffusion1D
-    parser.add_argument("--mode", required=True)
+    parser.add_argument("--task_name", required=True)  # Diffusion, Diffusion1D or Diffusion3D
+    parser.add_argument("--mode", required=True)  # real-imag &etc
     parser.add_argument("--flatten_type", default="spatial")
     parser.add_argument("--num_workers", type=int, default=16)
     parser.add_argument("--if_centering", action="store_true")
@@ -41,8 +41,8 @@ if __name__ == '__main__':
         
     if "CINE" in args["ds_name"] and args["flatten_type"] == "temporal":
         win_size = int(np.sqrt(config.data.channels))
-        train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size)
-        val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size)
+        train_ds = load_data(ds_name, "train", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size, resize_shape_T=config.data.image_size)
+        val_ds = load_data(ds_name, "val", if_aug=False, flatten_type=args["flatten_type"], win_size=win_size, resize_shape_T=config.data.image_size)
         ds_name = f"{ds_name}_1D"
     elif ds_name == "SanityCheck1D":
         num_channels = config.data.channels

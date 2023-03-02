@@ -6,6 +6,7 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from InverseProblemWithDiffusionModel.ncsn.models.ncsnv2 import NCSNv2Deepest, NCSNv2
 from InverseProblemWithDiffusionModel.ncsn.models.ncsn1d import NCSN1D, UNET1D
+from InverseProblemWithDiffusionModel.ncsn.models.ncsn3d import NCSN3D
 from InverseProblemWithDiffusionModel.ncsn.models.classifiers import ResNetClf
 from monai.networks.nets import UNet
 from InverseProblemWithDiffusionModel.helpers.load_data import load_config
@@ -22,6 +23,7 @@ with open(os.path.join(parent_dir, "ncsn/configs/general_config.yml"), "r") as r
 TASK_NAME_TO_MODEL_CTOR = {
     "Diffusion": NCSNv2Deepest,
     "Diffusion1D": NCSN1D,
+    "Diffusion3D": NCSN3D,
     # "Diffusion1D": UNET1D,
     "Clf": ResNetClf,
     "Seg": UNet
@@ -58,7 +60,7 @@ RELOAD_MODEL_DIRS = {
         },
         "CINE64_1D": {
             # "real-valued": "2023_01_21_11_05_11_826573",  # real-imag, [0, 1]
-            "real-valued": "2023_02_03_22_37_54_991247",  # real-imag, [-1, 1]
+            # "real-valued": "2023_02_03_22_37_54_991247",  # real-imag, [-1, 1]
             # "real-valued": "2023_02_05_08_22_29_816215",  # real-imag, [-1, 1], 64 channels
             # "real-valued": "2023_02_22_22_24_04_101290",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced
             # "real-valued": "2023_02_23_21_32_49_452096",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.02
@@ -67,7 +69,7 @@ RELOAD_MODEL_DIRS = {
             # "real-valued": "2023_02_23_22_32_39_262518",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07
             # "real-valued": "2023_02_23_23_05_47_731913",  # real-imag, [-1, 1], 64 channels, UNet, no IN, [64, 256, 1024, 4196]
             # "real-valued": "2023_02_23_23_12_25_531634",  # real-imag, [-1, 1], 64 channels, UNet, IN, [64, 256, 1024, 4196]
-            # "real-valued": "2023_02_23_23_17_52_644532",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07, mask[0:2] = True, prob = 0.
+            "real-valued": "2023_02_23_23_17_52_644532",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07, mask[0:2] = True, prob = 0.
         },
         "CINE127": {
             # "real-valued": "2022_11_04_23_58_37_174974",
