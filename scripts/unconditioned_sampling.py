@@ -30,7 +30,7 @@ if __name__ == '__main__':
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--ds_name", required=True, choices=list(REGISTERED_DATA_CONFIG_FILENAME.keys()))
-    parser.add_argument("--task_name", required=True, choices=["Diffusion", "Diffusion1D"], default="Diffusion")
+    parser.add_argument("--task_name", required=True, choices=["Diffusion", "Diffusion1D", "Diffusion3D"], default="Diffusion")
     parser.add_argument("--mode", required=True, choices=["real-valued", "mag", "complex"])
     # parser.add_argument("--if_conditioned", action="store_true")
     parser.add_argument("--num_steps_each", type=int, default=3)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         "denoise": config.sampling.denoise
     }
     sigmas = get_sigmas(config)
-    if args_dict["task_name"] == "Diffusion1D":
+    if args_dict["task_name"] in ["Diffusion1D", "Diffusion3D"]:
         x_mod_shape = (
             args_dict["num_samples"],
             config.data.channels,
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         save_path = os.path.join(args_dict["save_dir"], filename)
         fig.savefig(save_path)
 
-    elif args_dict["task_name"] == "Diffusion1D":
+    elif args_dict["task_name"] in ["Diffusion1D", "Diffusion3D"]:
         # images: (B, C, T)
         if args_dict["if_save_fig"]:
             # all channels

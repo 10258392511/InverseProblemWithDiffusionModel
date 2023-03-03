@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--flatten_type", default="spatial")
     parser.add_argument("--num_workers", type=int, default=16)
     parser.add_argument("--if_centering", action="store_true")
+    parser.add_argument("--notes", default="")
     args = vars(parser.parse_args())
     ds_name = args["ds_name"]
     task_name = args["task_name"]
