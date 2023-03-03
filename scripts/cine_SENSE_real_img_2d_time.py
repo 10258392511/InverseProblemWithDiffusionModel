@@ -47,6 +47,7 @@ if __name__ == '__main__':
     parser.add_argument("--proximal_type", default="L2Penalty")
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--sens_type", default="exp")
+    parser.add_argument("--temporal_type", default="Diffusion3D")  # only for loading model
     parser.add_argument("--mode_T", choices=["tv", "diffusion1d", "none", "diffusion1d-only", "tv-only"], default="diffusion1d")
     parser.add_argument("--lamda_T", type=float, default=10.)
     parser.add_argument("--if_random_shift", action="store_true")
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     img = img.permute(1, 0, 2, 3).to(device)  # (T, 1, H, W)
 
     scorenet = reload_model("Diffusion", ds_name, mode)
-    scorenet_T = reload_model("Diffusion1D", f"{ds_name}_1D", mode)
+    scorenet_T = reload_model(args_dict["temporal_type"], f"{ds_name}_1D", mode)
     ALD_sampler_params = {
         "n_steps_each": config_spatial.sampling.n_steps_each,
         "step_lr": config_spatial.sampling.step_lr

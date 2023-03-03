@@ -49,6 +49,7 @@ if __name__ == '__main__':
     parser.add_argument("--temporal_step_weight", type=float, default=1.)
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--sens_type", default="exp")
+    parser.add_argument("--temporal_type", default="Diffusion3D")  # only for loading model
     parser.add_argument("--num_sens", type=int, default=4)
     parser.add_argument("--mode_T", choices=["diffusion1d", "tv"], default="diffusion1d")
     parser.add_argument("--if_random_shift", action="store_true")
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     img = img.permute(1, 0, 2, 3).to(device)  # (T, 1, H, W)
 
     scorenet = reload_model("Diffusion", ds_name, mode)
-    scorenet_T = reload_model("Diffusion1D", f"{ds_name}_1D", mode)
+    scorenet_T = reload_model(args_dict["temporal_type"], f"{ds_name}_1D", mode)
     
     # (B, T, C, H, W)
     x_mod_shape = (
