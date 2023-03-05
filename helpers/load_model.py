@@ -70,7 +70,8 @@ RELOAD_MODEL_DIRS = {
             # "real-valued": "2023_02_23_23_05_47_731913",  # real-imag, [-1, 1], 64 channels, UNet, no IN, [64, 256, 1024, 4196]
             # "real-valued": "2023_02_23_23_12_25_531634",  # real-imag, [-1, 1], 64 channels, UNet, IN, [64, 256, 1024, 4196]
             # "real-valued": "2023_02_23_23_17_52_644532",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced by TV, th = 0.07, mask[0:2] = True, prob = 0.
-            "real-valued": "2023_03_03_00_11_10_443794"  # real-imag, [-1, 1], 64 channels, 3D
+            # "real-valued": "2023_03_03_00_11_10_443794",  # real-imag, [-1, 1], 64 channels, 3D
+            "real-valued": "2023_03_03_21_25_33_855315"  # real-imag, [-1, 1], 64 channels, 3D, no filtering
         },
         "CINE127": {
             # "real-valued": "2022_11_04_23_58_37_174974",
@@ -82,7 +83,8 @@ RELOAD_MODEL_DIRS = {
             # "real-valued": "2023_02_05_07_46_19_118951",  # real-imag, [-1, 1]
             # "real-valued": "2023_02_05_08_15_11_143632",  # real-imag, [-1, 1], 64 channels
             # "real-valued": "2023_02_22_22_25_05_251507",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced
-            "real-valued": "2023_03_03_00_16_13_820375"  # real-imag, [-1, 1], 64 channels, 3D
+            # "real-valued": "2023_03_03_00_16_13_820375",  # real-imag, [-1, 1], 64 channels, 3D
+            "real-valued": "2023_03_03_21_26_26_460216"  # real-imag, [-1, 1], 64 channels, 3D, no filtering
         },
         "ACDC": {
             # "real-valued": "2022_11_07_10_48_24_147215",  # [0, 1]
