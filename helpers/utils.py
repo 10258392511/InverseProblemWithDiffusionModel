@@ -384,6 +384,7 @@ def save_vol_as_gif(vol: Union[torch.Tensor, np.ndarray], save_dir: str, filenam
     # vol = (vol * 255).astype(np.uint8)
     if if_normalize:
         vol = (vol - vol.min()) / (vol.max() - vol.min())
+        # vol = np.clip(vol, 0., 1.)
     vol *= 255
     if C == 1:
         vol = vol[:, 0, ...]  # (T, H, W)

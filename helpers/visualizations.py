@@ -408,8 +408,9 @@ def grid_of_temporal_samples(x: Union[torch.Tensor, List[str]], num_rows: int,
        x = torch.cat(x, dim=0)  # (B, C, T)
 
     assert x.shape[0] % num_rows == 0
-    x = (x - torch.min(x, dim=-1, keepdim=True)[0]) / (torch.max(x, dim=-1, keepdim=True)[0] -
-                                                    torch.min(x, dim=-1, keepdim=True)[0])
+    x = torch.clip(x, 0., 1.)
+    # x = (x - torch.min(x, dim=-1, keepdim=True)[0]) / (torch.max(x, dim=-1, keepdim=True)[0] -
+    #                                                 torch.min(x, dim=-1, keepdim=True)[0])
     x = rearrange(x, "B (kx ky) T -> B T kx ky", ky=np.sqrt(x.shape[1]).astype(int))
     x_grid = make_grid(x, nrow=num_rows, padding=padding)  # (T, H', W')
 
