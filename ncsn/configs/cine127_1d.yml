@@ -42,7 +42,7 @@ data:
   image_size: 24  # T = 25, 32
   channels: 64  # 4
   channels_3d: 1
-  th: 0.02  # norm_tfm(x) / x.numel()
+  th: 0.05  # norm_tfm(x) / x.numel()
   leq: 8.82  # leq : gt = 7.82 : 1
   logit_transform: false
   uniform_dequantization: false

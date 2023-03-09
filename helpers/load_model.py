@@ -6,7 +6,7 @@ import InverseProblemWithDiffusionModel.helpers.pytorch_utils as ptu
 
 from InverseProblemWithDiffusionModel.ncsn.models.ncsnv2 import NCSNv2Deepest, NCSNv2
 from InverseProblemWithDiffusionModel.ncsn.models.ncsn1d import NCSN1D, UNET1D
-from InverseProblemWithDiffusionModel.ncsn.models.ncsn3d import NCSN3D
+from InverseProblemWithDiffusionModel.ncsn.models.ncsn3d import NCSN3D, NCSN3DShallow
 from InverseProblemWithDiffusionModel.ncsn.models.classifiers import ResNetClf
 from monai.networks.nets import UNet
 from InverseProblemWithDiffusionModel.helpers.load_data import load_config
@@ -23,7 +23,8 @@ with open(os.path.join(parent_dir, "ncsn/configs/general_config.yml"), "r") as r
 TASK_NAME_TO_MODEL_CTOR = {
     "Diffusion": NCSNv2Deepest,
     "Diffusion1D": NCSN1D,
-    "Diffusion3D": NCSN3D,
+    "Diffusion3D": NCSN3DShallow,
+    # "Diffusion3D": NCSN3D,
     # "Diffusion1D": UNET1D,
     "Clf": ResNetClf,
     "Seg": UNet

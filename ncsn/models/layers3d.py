@@ -1,4 +1,4 @@
-# search for ### to 3D for places to change
+# search for "### to 3D" for places to change
 import torch.nn as nn
 import torch
 from torch.nn.parameter import Parameter
@@ -312,7 +312,7 @@ class ConvMeanPool(nn.Module):
             #     conv
             # )
             self.conv = nn.Sequential(
-                nn.ConstantPad1d((1, 0), 0),
+                nn.ConstantPad3d((1, 0, 1, 0, 1, 0), 0),
                 conv
             )
 

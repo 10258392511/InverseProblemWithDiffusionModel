@@ -60,6 +60,7 @@ if __name__ == '__main__':
     print(f"batch_size: {config.training.batch_size}")
     print("-" * 100)
     model = load_model(config, task_name)
+    print(f"model: {type(model)}")
     params = {
         "batch_size": config.training.batch_size,
         "lr": config.optim.lr,
