@@ -85,7 +85,8 @@ RELOAD_MODEL_DIRS = {
             # "real-valued": "2023_02_05_08_15_11_143632",  # real-imag, [-1, 1], 64 channels
             # "real-valued": "2023_02_22_22_25_05_251507",  # real-imag, [-1, 1], 64 channels, fg-bg rebalanced
             # "real-valued": "2023_03_03_00_16_13_820375",  # real-imag, [-1, 1], 64 channels, 3D
-            "real-valued": "2023_03_03_21_26_26_460216"  # real-imag, [-1, 1], 64 channels, 3D, no filtering
+            # "real-valued": "2023_03_03_21_26_26_460216",  # real-imag, [-1, 1], 64 channels, 3D, no filtering
+            "real-valued": "2023_03_09_21_56_18_628003"  # real-imag, [-1, 1], 64 channels, downsample: (1, 1, 3)
         },
         "ACDC": {
             # "real-valued": "2022_11_07_10_48_24_147215",  # [0, 1]
