@@ -3,7 +3,7 @@ import torch
 import warnings
 
 from scipy.spatial import distance_matrix
-from . import i2k_complex, k2i_complex, LinearTransform
+from . import i2k_complex, k2i_complex, LinearTransform, generate_mask
 from .masking import SkipLines
 
 
@@ -47,18 +47,30 @@ class RandomUndersamplingFourier(LinearTransform):
         self.seed = seed
         self.mask = self._generate_mask()
 
+    # def _generate_mask(self):
+    #     # mask: (1, 1, W)
+    #     torch.random.manual_seed(self.seed)
+    #     C, H, W = self.in_shape
+    #     mask = (torch.rand(1, 1, W) <= 1 / self.R).float()
+    #     win_size = int(W * self.center_lines_frac)
+    #     half_win_size = W // 2
+    #     start_idx = half_win_size - win_size // 2
+    #     end_idx = start_idx + win_size
+    #     mask[..., start_idx:end_idx] = 1.
+
+    #     return mask
+
     def _generate_mask(self):
-        # mask: (1, 1, W)
+        # for (T, 1, H, W) only
         torch.random.manual_seed(self.seed)
         C, H, W = self.in_shape
-        mask = (torch.rand(1, 1, W) <= 1 / self.R).float()
-        win_size = int(W * self.center_lines_frac)
-        half_win_size = W // 2
-        start_idx = half_win_size - win_size // 2
-        end_idx = start_idx + win_size
-        mask[..., start_idx:end_idx] = 1.
+        # T = 24
+        # mask = generate_mask(T, W, sw=0.07, sm=0.3, sa=0.01782)  # (T, 1, W), R = 20
+        # mask = mask.unsqueeze(1)  # (T, 1, 1, W)
+        T = 1
+        mask = generate_mask(T, W, sw=0.07, sm=0.3, sa=0.01782, seed=self.seed)  # (1, W), R = 20
 
-        return mask
+        return mask 
 
     def __call__(self, X: torch.Tensor) -> torch.Tensor:
         # X: (B, C, H, W)

@@ -127,7 +127,7 @@ class TrainScoreModelDiscrete(pl.LightningModule):
             X = 2 * X - 1
         # print(f"X: {X.shape}, {X.min()}, {X.max()}")
         # X: (B, C, H, W)
-        X = filter_batch(X, self.config)
+        # X = filter_batch(X, self.config)
         X = collate_batch(X, self.params["data_mode"])
 
         if isinstance(X, list):

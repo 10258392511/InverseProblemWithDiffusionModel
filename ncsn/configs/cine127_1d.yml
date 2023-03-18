@@ -1,5 +1,5 @@
 training:
-  batch_size: 128  # 2048
+  batch_size: 90  # 2048
   n_epochs: 50  # 200
   use_IN: true
   n_iters: 80001
@@ -53,7 +53,7 @@ data:
 
 model:
   sigma_begin: 40  # 10
-  num_classes: 200  # 100
+  num_classes: 400  # 100
   ema: true
   ema_rate: 0.999
   spec_norm: false
