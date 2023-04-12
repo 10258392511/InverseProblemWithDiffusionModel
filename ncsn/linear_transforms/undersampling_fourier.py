@@ -64,12 +64,14 @@ class RandomUndersamplingFourier(LinearTransform):
         # for (T, 1, H, W) only
         torch.random.manual_seed(self.seed)
         C, H, W = self.in_shape
-        # T = 24
+        T = 24
         # mask = generate_mask(T, W, sw=0.07, sm=0.3, sa=0.01782)  # (T, 1, W), R = 20
-        # mask = mask.unsqueeze(1)  # (T, 1, 1, W)
-        T = 1
-        mask = generate_mask(T, W, sw=0.07, sm=0.3, sa=0.01782, seed=self.seed)  # (1, W), R = 20
-
+        mask = generate_mask(T, W, sw=0.07926, sm=0.42, sa=0.02, seed=self.seed)  # (T, 1, W), R = 16
+        # mask = generate_mask(T, W, sw=0.196, sm=0.5, sa=0.02, seed=self.seed)  # (T, 1, W), R = 8
+        mask = mask.unsqueeze(1)  # (T, 1, 1, W)
+        # T = 1
+        # # mask = generate_mask(T, W, sw=0.07, sm=0.3, sa=0.01782, seed=self.seed)  # (1, W), R = 20
+        
         return mask 
 
     def __call__(self, X: torch.Tensor) -> torch.Tensor:

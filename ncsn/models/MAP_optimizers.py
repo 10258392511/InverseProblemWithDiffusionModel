@@ -270,44 +270,7 @@ class MAPOptimizer2DTime(object):
 
         return grad
 
-    # # for NCSN1D
-    # def temporal_step(self, mode_T="diffusion1d", if_random_shift=False):
-    #     # self.x: (B, T, C, H, W)
-    #     if mode_T == "tv":
-    #         if self.finite_diff is None:
-    #             self.finite_diff = FiniteDiff(dims=1)
-    #         x_real, x_imag = torch.real(self.x), torch.imag(self.x)
-    #         grad_real = self.finite_diff.log_lh_grad(x_real)
-    #         grad_imag = self.finite_diff.log_lh_grad(x_imag)
-    #         grad = grad_real + 1j * grad_imag
-
-    #     elif mode_T == "diffusion1d":
-    #         B, T, C, H, W = self.x.shape
-    #         x = einops.rearrange(self.x, "B T C H W -> (B C) T H W")  # (BC, T, H, W)
-    #         if if_random_shift:
-    #             shifts_np = np.random.randint(0, self.win_size, (2,))
-    #             shifts = tuple(shifts_np.tolist())
-    #             # print(f"shifts: {shifts}")
-    #             x = torch.roll(x, shifts=shifts, dims=(-2, -1))
-    #         x = reshape_temporal_dim(x, self.params["win_size"], self.params["win_size"], "forward")  # (B', kx * ky, T)
-    #         labels = torch.ones(x.shape[0], device=self.device).long()
-    #         x_real, x_imag = torch.real(x), torch.imag(x)
-    #         grad_real = self.scorenet_T(x_real, labels)
-    #         grad_imag = self.scorenet_T(x_imag, labels)
-    #         grad = grad_real + 1j * grad_imag
-    #         grad = reshape_temporal_dim(grad, self.params["win_size"], self.params["win_size"], "backward", img_size=(H, W))  # (BC, T, H, W)
-    #         # print(f"grad_T shape: {grad.shape}")
-    #         # print("-" * 100)
-    #         if if_random_shift:
-    #             shifts = -shifts_np
-    #             shifts = tuple(shifts.tolist())
-    #             # print(f"shifts back: {shifts}")
-    #             grad = torch.roll(grad, shifts=shifts, dims=(-2, -1))
-    #         grad = einops.rearrange(grad, "(B C) T H W -> B T C H W", C=C)
-
-    #     return grad
-
-    # for NCSN3D (conv)
+    # for NCSN1D
     def temporal_step(self, mode_T="diffusion1d", if_random_shift=False):
         # self.x: (B, T, C, H, W)
         if mode_T == "tv":
@@ -320,17 +283,54 @@ class MAPOptimizer2DTime(object):
 
         elif mode_T == "diffusion1d":
             B, T, C, H, W = self.x.shape
-            x = einops.rearrange(self.x, "B T C H W -> B C H W T")
+            x = einops.rearrange(self.x, "B T C H W -> (B C) T H W")  # (BC, T, H, W)
+            if if_random_shift:
+                shifts_np = np.random.randint(0, self.win_size, (2,))
+                shifts = tuple(shifts_np.tolist())
+                # print(f"shifts: {shifts}")
+                x = torch.roll(x, shifts=shifts, dims=(-2, -1))
+            x = reshape_temporal_dim(x, self.params["win_size"], self.params["win_size"], "forward")  # (B', kx * ky, T)
             labels = torch.ones(x.shape[0], device=self.device).long()
             x_real, x_imag = torch.real(x), torch.imag(x)
             grad_real = self.scorenet_T(x_real, labels)
             grad_imag = self.scorenet_T(x_imag, labels)
             grad = grad_real + 1j * grad_imag
+            grad = reshape_temporal_dim(grad, self.params["win_size"], self.params["win_size"], "backward", img_size=(H, W))  # (BC, T, H, W)
             # print(f"grad_T shape: {grad.shape}")
             # print("-" * 100)
-            grad = einops.rearrange(grad, "B C H W T -> B T C H W")
+            if if_random_shift:
+                shifts = -shifts_np
+                shifts = tuple(shifts.tolist())
+                # print(f"shifts back: {shifts}")
+                grad = torch.roll(grad, shifts=shifts, dims=(-2, -1))
+            grad = einops.rearrange(grad, "(B C) T H W -> B T C H W", C=C)
 
         return grad
+
+    # # for NCSN3D (conv)
+    # def temporal_step(self, mode_T="diffusion1d", if_random_shift=False):
+    #     # self.x: (B, T, C, H, W)
+    #     if mode_T == "tv":
+    #         if self.finite_diff is None:
+    #             self.finite_diff = FiniteDiff(dims=1)
+    #         x_real, x_imag = torch.real(self.x), torch.imag(self.x)
+    #         grad_real = self.finite_diff.log_lh_grad(x_real)
+    #         grad_imag = self.finite_diff.log_lh_grad(x_imag)
+    #         grad = grad_real + 1j * grad_imag
+
+    #     elif mode_T == "diffusion1d":
+    #         B, T, C, H, W = self.x.shape
+    #         x = einops.rearrange(self.x, "B T C H W -> B C H W T")
+    #         labels = torch.ones(x.shape[0], device=self.device).long()
+    #         x_real, x_imag = torch.real(x), torch.imag(x)
+    #         grad_real = self.scorenet_T(x_real, labels)
+    #         grad_imag = self.scorenet_T(x_imag, labels)
+    #         grad = grad_real + 1j * grad_imag
+    #         # print(f"grad_T shape: {grad.shape}")
+    #         # print("-" * 100)
+    #         grad = einops.rearrange(grad, "B C H W T -> B T C H W")
+
+    #     return grad
 
     def get_reconstruction(self):
 

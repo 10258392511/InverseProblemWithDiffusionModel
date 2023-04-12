@@ -103,6 +103,10 @@ if __name__ == '__main__':
         args_dict["seed"]
     )
 
+    mask = linear_tfm.random_under_fourier.mask.squeeze().T  # (T, 1, 1, W) -> (T, W) -> (W, T)
+    vis_images(mask.unsqueeze(0), if_save=True, save_dir=args_dict["save_dir"], filename="mask.png")
+    torch.save(mask, os.path.join(args_dict["save_dir"], "mask.pt"))
+
     for i in range(linear_tfm.sens_maps.shape[0]):
         vis_images(linear_tfm.sens_maps[i:i + 1], if_save=True, save_dir=args_dict["save_dir"], 
                    filename=f"sens_map_{i}.png")

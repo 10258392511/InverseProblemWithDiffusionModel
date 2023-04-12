@@ -448,60 +448,7 @@ class ALD2DTime(ALDOptimizer):
         
         return x_mod
 
-    # # for NCSN1D    
-    # def temporal_step(self, x_mod, c, mode_T, lamda_T, if_random_shift):
-    #     # x_mod: (B, T, C, H, W), labels: (B,)
-    #     # TV_t
-    #     if "tv" in mode_T:
-    #         if self.finite_diff is None:
-    #             self.finite_diff = FiniteDiff(dims=1)
-    #         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
-    #         x_mod_real = x_mod_real + self.finite_diff.log_lh_grad(x_mod_real, lamda=lamda_T)
-    #         x_mod_imag = x_mod_imag + self.finite_diff.log_lh_grad(x_mod_imag, lamda=lamda_T)
-
-    #         x_mod = x_mod_real + 1j * x_mod_imag
-
-    #     # scorenet_T
-    #     elif "diffusion1d" in mode_T:
-    #         if self.sigmas_T[c] == -1:
-    #             return x_mod
-    #         B, T, C, H, W = x_mod.shape
-    #         x_mod = x_mod.permute(0, 2, 1, 3, 4)  # (B, C, T, H, W)
-    #         x_mod = x_mod.reshape(-1, T, H, W)  # (BC, T, H, W)
-    #         if if_random_shift:
-    #             shifts_np = np.random.randint(0, self.win_size, (2,))
-    #             shifts = tuple(shifts_np.tolist())
-    #             print(f"shifts: {shifts}")
-    #             x_mod = torch.roll(x_mod, shifts=shifts, dims=(-2, -1))
-    #         x_mod = reshape_temporal_dim(x_mod, self.win_size, self.win_size, "forward")  # (B', kx * ky, T)
-    #         labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
-    #         labels = labels.long()
-    #         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
-    #         step_size = self.params["step_lr"] * (self.sigmas_T[c] / self.sigmas_T[-1]) ** 2
-
-    #         grad_real = self.scorenet_T(x_mod_real, labels)  # (B', kx * ky, T)
-    #         grad_imag = self.scorenet_T(x_mod_imag, labels)
-            
-    #         step_size = step_size * lamda_T
-    #         noise_real = torch.randn_like(x_mod_real)
-    #         noise_imag = torch.randn_like(x_mod_imag)
-
-    #         x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
-    #         x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
-
-            
-    #         x_mod = reshape_temporal_dim(x_mod_real + 1j * x_mod_imag, self.win_size, self.win_size, "backward", img_size=(H, W))  # (BC, T, H, W)
-    #         if if_random_shift:
-    #             shifts = -shifts_np
-    #             shifts = tuple(shifts.tolist())
-    #             print(f"shifts back: {shifts}")
-    #             x_mod = torch.roll(x_mod, shifts=shifts, dims=(-2, -1))
-
-    #         x_mod = x_mod.reshape(B, C, T, H, W).permute(0, 2, 1, 3, 4)  # (B, C, T, H, W) -> (B, T, C, H, W)
-    
-    #     return x_mod
-    
-    # for NCSN3D (conv)
+    # for NCSN1D    
     def temporal_step(self, x_mod, c, mode_T, lamda_T, if_random_shift):
         # x_mod: (B, T, C, H, W), labels: (B,)
         # TV_t
@@ -519,7 +466,14 @@ class ALD2DTime(ALDOptimizer):
             if self.sigmas_T[c] == -1:
                 return x_mod
             B, T, C, H, W = x_mod.shape
-            x_mod = rearrange(x_mod, "B T C H W -> B C H W T")
+            x_mod = x_mod.permute(0, 2, 1, 3, 4)  # (B, C, T, H, W)
+            x_mod = x_mod.reshape(-1, T, H, W)  # (BC, T, H, W)
+            if if_random_shift:
+                shifts_np = np.random.randint(0, self.win_size, (2,))
+                shifts = tuple(shifts_np.tolist())
+                print(f"shifts: {shifts}")
+                x_mod = torch.roll(x_mod, shifts=shifts, dims=(-2, -1))
+            x_mod = reshape_temporal_dim(x_mod, self.win_size, self.win_size, "forward")  # (B', kx * ky, T)
             labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
             labels = labels.long()
             x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
@@ -534,11 +488,57 @@ class ALD2DTime(ALDOptimizer):
 
             x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
             x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
-            x_mod = x_mod_real + 1j * x_mod_imag
+
             
-            x_mod = rearrange(x_mod, "B C H W T -> B T C H W")
+            x_mod = reshape_temporal_dim(x_mod_real + 1j * x_mod_imag, self.win_size, self.win_size, "backward", img_size=(H, W))  # (BC, T, H, W)
+            if if_random_shift:
+                shifts = -shifts_np
+                shifts = tuple(shifts.tolist())
+                print(f"shifts back: {shifts}")
+                x_mod = torch.roll(x_mod, shifts=shifts, dims=(-2, -1))
+
+            x_mod = x_mod.reshape(B, C, T, H, W).permute(0, 2, 1, 3, 4)  # (B, C, T, H, W) -> (B, T, C, H, W)
     
         return x_mod
+    
+    # # for NCSN3D (conv)
+    # def temporal_step(self, x_mod, c, mode_T, lamda_T, if_random_shift):
+    #     # x_mod: (B, T, C, H, W), labels: (B,)
+    #     # TV_t
+    #     if "tv" in mode_T:
+    #         if self.finite_diff is None:
+    #             self.finite_diff = FiniteDiff(dims=1)
+    #         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+    #         x_mod_real = x_mod_real + self.finite_diff.log_lh_grad(x_mod_real, lamda=lamda_T)
+    #         x_mod_imag = x_mod_imag + self.finite_diff.log_lh_grad(x_mod_imag, lamda=lamda_T)
+
+    #         x_mod = x_mod_real + 1j * x_mod_imag
+
+    #     # scorenet_T
+    #     elif "diffusion1d" in mode_T:
+    #         if self.sigmas_T[c] == -1:
+    #             return x_mod
+    #         B, T, C, H, W = x_mod.shape
+    #         x_mod = rearrange(x_mod, "B T C H W -> B C H W T")
+    #         labels = torch.ones(x_mod.shape[0], device=x_mod.device) * c
+    #         labels = labels.long()
+    #         x_mod_real, x_mod_imag = torch.real(x_mod), torch.imag(x_mod)
+    #         step_size = self.params["step_lr"] * (self.sigmas_T[c] / self.sigmas_T[-1]) ** 2
+
+    #         grad_real = self.scorenet_T(x_mod_real, labels)  # (B', kx * ky, T)
+    #         grad_imag = self.scorenet_T(x_mod_imag, labels)
+            
+    #         step_size = step_size * lamda_T
+    #         noise_real = torch.randn_like(x_mod_real)
+    #         noise_imag = torch.randn_like(x_mod_imag)
+
+    #         x_mod_real = x_mod_real + step_size * grad_real + noise_real * torch.sqrt(step_size * 2)
+    #         x_mod_imag = x_mod_imag + step_size * grad_imag + noise_imag * torch.sqrt(step_size * 2)
+    #         x_mod = x_mod_real + 1j * x_mod_imag
+            
+    #         x_mod = rearrange(x_mod, "B C H W T -> B T C H W")
+    
+    #     return x_mod
     
     def proximal_step(self, x_mod, alpha, lr_scaled):
         # x_mod: (B, T, C, H, W)
