@@ -9,5 +9,5 @@ pip3 install -e .
 ### NCSN for 2D Complex-Valued MR Image Reconstruction
 <figure>
     <img src="readme_images/acdc_summary.gif" alt="ACDC Summary">
-    <figcaption><b>Comparing ALD reconstruction with MAP and TV reconstruction. We computed the mean of 105 reconstructions and it outperforms distintively over MAP and TV reconstruction under the high acceleration rate R = 40 with 4 coils.</b></figcaption>
+    <figcaption><b>Comparing ALD reconstruction with MAP and TV reconstruction. We computed the mean of 105 reconstructions and it outperforms distinctively over MAP and TV reconstruction under the high acceleration rate R = 40 with 4 coils.</b></figcaption>
 </figure>
