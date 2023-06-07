@@ -47,7 +47,7 @@ pip3 install -e .
         <th >Phase</th>
         <th>Mag<span style="color: white;">.</span> @ T / 2</th>
         <th>Phase @ T / 2</th>
-        <th>Mag @ H / 2</th>
+        <th>Mag<span style="color: white;">.</span> @ H / 2</th>
         <th>NRMSE</th>
         <th>SSIM</th>
     </tr>
