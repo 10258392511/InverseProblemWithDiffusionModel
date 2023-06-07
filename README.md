@@ -37,3 +37,112 @@ pip3 install -e .
 <div align="center">
     <strong>CINE127 temporal unconditional real / imaginary samples with different ALD learning rate &alpha;.</strong>
 </div>
+
+<br>
+<table align="center" id="NCSN-3D-results">
+    <tr>
+        <th>R</th>
+        <th>Algorithm</th>
+        <th>Mag<span style="color: white;">a</span></th>
+        <th >Phase</th>
+        <th>Mag<span style="color: white;">a</span> @ T / 2</th>
+        <th>Phase @ T / 2</th>
+        <th>Mag @ H / 2</th>
+        <th>NRMSE</th>
+        <th>SSIM</th>
+    </tr>
+    <tbody align="center">
+        <tr>
+            <td>8</td>
+            <td>Original</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/mag.gif" alt="original mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/phase.gif" alt="original phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_T_mag.png" alt="original mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_T_phase.png" alt="original phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_H_mag.png" alt="original mag at half H" height=70></td>
+            <td>N/A</td>
+            <td>N/A</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>ZF</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/mag.gif" alt="ZF mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/phase.gif" alt="ZF phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_T_mag.png" alt="ZF mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_T_phase.png" alt="ZF phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_H_mag.png" alt="ZF mag at half H" height=70></td>
+            <td>0.439</td>
+            <td>0.502</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>ALD Best</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/mag.gif" alt="ALD best mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/phase.gif" alt="ALD best phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_T_mag.png" alt="ALD best mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_T_phase.png" alt="ALD best phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_H_mag.png" alt="ALD best mag at half H" height=70></td>
+            <td>0.073</td>
+            <td>0.953</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>MAP Best</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/mag.gif" alt="MAP best mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/phase.gif" alt="MAP best phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_T_mag.png" alt="MAP best mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_T_phase.png" alt="MAP best phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_H_mag.png" alt="MAP best mag at half H" height=70></td>
+            <td>0.091</td>
+            <td>0.955</td>
+        </tr>
+        <tr>
+            <td>16</td>
+            <td>Original</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/mag.gif" alt="original mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/phase.gif" alt="original phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_T_mag.png" alt="original mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_T_phase.png" alt="original phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_H_mag.png" alt="original mag at half H" height=70></td>
+            <td>N/A</td>
+            <td>N/A</td>
+        </tr>
+        <tr>
+            <td>16</td>
+            <td>ZF</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/mag.gif" alt="ZF mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/phase.gif" alt="ZF phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_T_mag.png" alt="ZF mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_T_phase.png" alt="ZF phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_H_mag.png" alt="ZF mag at half H" height=70></td>
+            <td>0.512</td>
+            <td>0.412</td>
+        </tr>
+        <tr>
+            <td>16</td>
+            <td>ALD Best</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/mag.gif" alt="ALD best mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/phase.gif" alt="ALD best phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_T_mag.png" alt="ALD best mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_T_phase.png" alt="ALD best phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_H_mag.png" alt="ALD best mag at half H" height=70></td>
+            <td>0.141</td>
+            <td>0.865</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>MAP Best</td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/mag.gif" alt="MAP best mag"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/phase.gif" alt="MAP best phase"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_T_mag.png" alt="MAP best mag at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_T_phase.png" alt="MAP best phase at half T"></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_H_mag.png" alt="MAP best mag at half H" height=70></td>
+            <td>0.161</td>
+            <td>0.871</td>
+        </tr>
+    </tbody>
+</table>
+
+<div align="center">
+    <strong>Results on cardiac MR data. Our algorithms reconstruct image very close to GT under moderate acceleration rate; and still work very well under very high acceleration rate. </strong>
+</div>
