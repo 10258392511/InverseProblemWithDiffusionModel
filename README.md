@@ -59,7 +59,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/phase.gif" alt="original phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_T_mag.png" alt="original mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_T_phase.png" alt="original phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_H_mag.png" alt="original mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/original/half_H_mag.png" alt="original mag at half H" height=128></td>
             <td>N/A</td>
             <td>N/A</td>
         </tr>
@@ -70,7 +70,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/phase.gif" alt="ZF phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_T_mag.png" alt="ZF mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_T_phase.png" alt="ZF phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_H_mag.png" alt="ZF mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ZF/half_H_mag.png" alt="ZF mag at half H" height=128></td>
             <td>0.439</td>
             <td>0.502</td>
         </tr>
@@ -81,7 +81,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/phase.gif" alt="ALD best phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_T_mag.png" alt="ALD best mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_T_phase.png" alt="ALD best phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_H_mag.png" alt="ALD best mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/ALD/half_H_mag.png" alt="ALD best mag at half H" height=128></td>
             <td>0.073</td>
             <td>0.953</td>
         </tr>
@@ -92,7 +92,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/phase.gif" alt="MAP best phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_T_mag.png" alt="MAP best mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_T_phase.png" alt="MAP best phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_H_mag.png" alt="MAP best mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_8/MAP/half_H_mag.png" alt="MAP best mag at half H" height=128></td>
             <td>0.091</td>
             <td>0.955</td>
         </tr>
@@ -103,7 +103,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/phase.gif" alt="original phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_T_mag.png" alt="original mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_T_phase.png" alt="original phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_H_mag.png" alt="original mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/original/half_H_mag.png" alt="original mag at half H" height=128></td>
             <td>N/A</td>
             <td>N/A</td>
         </tr>
@@ -114,7 +114,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/phase.gif" alt="ZF phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_T_mag.png" alt="ZF mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_T_phase.png" alt="ZF phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_H_mag.png" alt="ZF mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ZF/half_H_mag.png" alt="ZF mag at half H" height=128></td>
             <td>0.512</td>
             <td>0.412</td>
         </tr>
@@ -125,7 +125,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/phase.gif" alt="ALD best phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_T_mag.png" alt="ALD best mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_T_phase.png" alt="ALD best phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_H_mag.png" alt="ALD best mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/ALD/half_H_mag.png" alt="ALD best mag at half H" height=128></td>
             <td>0.141</td>
             <td>0.865</td>
         </tr>
@@ -136,7 +136,7 @@ pip3 install -e .
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/phase.gif" alt="MAP best phase"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_T_mag.png" alt="MAP best mag at half T"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_T_phase.png" alt="MAP best phase at half T"></td>
-            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_H_mag.png" alt="MAP best mag at half H" height=70></td>
+            <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/half_H_mag.png" alt="MAP best mag at half H" height=128></td>
             <td>0.161</td>
             <td>0.871</td>
         </tr>
