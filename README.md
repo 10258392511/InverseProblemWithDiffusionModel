@@ -43,9 +43,9 @@ pip3 install -e .
     <tr>
         <th>R</th>
         <th>Algorithm</th>
-        <th>Mag<span style="color: white;">a</span></th>
+        <th>Mag<span style="color: white;">.</span></th>
         <th >Phase</th>
-        <th>Mag<span style="color: white;">a</span> @ T / 2</th>
+        <th>Mag<span style="color: white;">.</span> @ T / 2</th>
         <th>Phase @ T / 2</th>
         <th>Mag @ H / 2</th>
         <th>NRMSE</th>
