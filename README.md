@@ -130,7 +130,7 @@ pip3 install -e .
             <td>0.865</td>
         </tr>
         <tr>
-            <td>8</td>
+            <td>16</td>
             <td>MAP Best</td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/mag.gif" alt="MAP best mag"></td>
             <td><img src="readme_images/qualitative_2d_time_readme/R_16/MAP/phase.gif" alt="MAP best phase"></td>
